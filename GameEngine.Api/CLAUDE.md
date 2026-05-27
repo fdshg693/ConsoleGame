@@ -3,6 +3,7 @@
 RPG エンジンを HTTP で駆動する **ASP.NET Core Web API ホスト**（net8.0, `Microsoft.NET.Sdk.Web`）。コアライブラリ [GameEngine](./../GameEngine/CLAUDE.md) を `ProjectReference` し、コンソール [GameEngine.Console](./../GameEngine.Console/CLAUDE.md) とコアを共有する（UI アダプタのみ差し替え）。
 
 - HTTP 契約 DTO（`GameStateResponse`／リクエスト DTO）は本プロジェクト内ではなく共有ライブラリ [GameEngine.Contracts](./../GameEngine.Contracts/CLAUDE.md) に置き、`ProjectReference` で参照する（Web フロントと二重定義しないため。`namespace GameEngine.Contracts`）。
+- Blazor WASM フロント [GameEngine.Web](./../GameEngine.Web/CLAUDE.md) を **ホスト型配信**する（`ProjectReference` + `UseBlazorFrameworkFiles`）。同一オリジンのため CORS 不要、デプロイ単位は 1 つ。
 
 ## 役割
 
@@ -59,7 +60,8 @@ RPG エンジンを HTTP で駆動する **ASP.NET Core Web API ホスト**（ne
 2. `MongoPlayerRepository` を試行生成（失敗時は登録せず警告ログ→セーブ系は 503）
 3. `GameSessionManager` を Singleton 登録（`GameConfig` + 任意の `IPlayerRepository`）
 4. `AddControllers`（`JsonStringEnumConverter`）+ Swagger（XML コメント取り込み）
-5. 末尾に `public partial class Program {}`（`WebApplicationFactory` 統合テスト〔フェーズ5〕用）
+5. ホスト型 WASM 配信: `UseBlazorFrameworkFiles` / `UseStaticFiles` + `MapFallbackToFile("index.html")`（`/api`・`/swagger` 以外は SPA にフォールバック）
+6. 末尾に `public partial class Program {}`（`WebApplicationFactory` 統合テスト〔フェーズ5〕用）
 
 ## YAML 設定
 
@@ -69,6 +71,7 @@ RPG エンジンを HTTP で駆動する **ASP.NET Core Web API ホスト**（ne
 ## 依存パッケージ
 
 - `Swashbuckle.AspNetCore 6.6.2` — Swagger/OpenAPI
+- `Microsoft.AspNetCore.Components.WebAssembly.Server 8.0.21` — ホスト型 WASM 配信（`UseBlazorFrameworkFiles`）
 
 ## 実行
 

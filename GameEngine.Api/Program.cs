@@ -59,6 +59,12 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
+// ── ホスト型 Blazor WASM 配信 ────────────────────────────────────
+// GameEngine.Web の発行物（_framework/*）を同一オリジンで配信する（CORS 不要）。
+// API ルート（/api/...）・Swagger（/swagger）以外は SPA の index.html にフォールバックする。
+app.UseBlazorFrameworkFiles();
+app.UseStaticFiles();
+
 // Swagger は開発・本番ともに公開する（PoC のため）。
 app.UseSwagger();
 app.UseSwaggerUI(options =>
@@ -68,6 +74,7 @@ app.UseSwaggerUI(options =>
 });
 
 app.MapControllers();
+app.MapFallbackToFile("index.html");
 
 app.Run();
 

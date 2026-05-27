@@ -11,6 +11,8 @@
 
   <ItemGroup>
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+    <!-- ホスト型 Blazor WASM 配信（UseBlazorFrameworkFiles）。WASM パッケージとバージョンを揃える -->
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="8.0.21" />
   </ItemGroup>
 
   <ItemGroup>
@@ -18,6 +20,8 @@
     <ProjectReference Include="..\GameEngine\GameEngine.csproj" />
     <!-- 共有契約（GameStateResponse / リクエスト DTO）。Web と二重定義しない単一の真実 -->
     <ProjectReference Include="..\GameEngine.Contracts\GameEngine.Contracts.csproj" />
+    <!-- Blazor WASM フロント。発行時に静的アセット（_framework）を本ホストへ同梱する -->
+    <ProjectReference Include="..\GameEngine.Web\GameEngine.Web.csproj" />
   </ItemGroup>
 
 </Project>
