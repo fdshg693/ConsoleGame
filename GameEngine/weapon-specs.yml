@@ -1,0 +1,29 @@
+Sword:
+  Name: "Sword"
+  HP: 100
+  AP: 20
+  DP: 5
+
+Axe:
+  Name: "Axe"
+  HP: 80
+  AP: 30
+  DP: 3
+
+Spear:
+  Name: "Spear"
+  HP: 90
+  AP: 25
+  DP: 4
+
+Bow:
+  Name: "Bow"
+  HP: 70
+  AP: 35
+  DP: 2
+
+Staff:
+  Name: "Staff"
+  HP: 60
+  AP: 40
+  DP: 1

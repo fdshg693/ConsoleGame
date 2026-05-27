@@ -1,0 +1,68 @@
+# Game Configuration File
+# This file contains all game balance and configuration settings
+
+# MongoDB Configuration
+MongoDB:
+  ConnectionString: "mongodb://localhost:27017"
+  DatabaseName: "GameEngineDB"
+  CollectionName: "PlayerSaves"
+
+# Player Configuration
+Player:
+  InitialHP: 100
+  BaseDP: 5
+  BaseAP: 10
+  InitialGold: 50
+  InitialPotions: 0
+
+# Level Up System
+LevelUp:
+  HPIncrease: 10
+  DPIncrease: 1
+  APIncrease: 2
+  ExperienceRequired: 100
+
+# Item Configuration
+Items:
+  Potion:
+    Price: 10
+    HealAmount: 10
+
+# Event Probabilities (weight-based)
+Events:
+  ShopEventWeight: 1     # 1/3 chance
+  BattleEventWeight: 2   # 2/3 chance
+
+# Shop Configuration
+Shop:
+  GoldRewardMin: 10
+  GoldRewardMax: 20
+
+# Enemy Configuration
+Enemy:
+  GoldBaseMultiplier: 2  # Gold = Experience / 2
+  GoldRandomMin: 1
+  GoldRandomMax: 10
+
+# Weapon Stats
+Weapons:
+  Sword:
+    HP: 100
+    AP: 20
+    DP: 5
+  Axe:
+    HP: 80
+    AP: 30
+    DP: 3
+  Spear:
+    HP: 90
+    AP: 25
+    DP: 4
+  Bow:
+    HP: 70
+    AP: 35
+    DP: 2
+  Staff:
+    HP: 60
+    AP: 40
+    DP: 1

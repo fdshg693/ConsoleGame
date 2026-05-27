@@ -1,0 +1,23 @@
+﻿Goblin:
+  Name: "Goblin"
+  HP: 30
+  AttackStrategy: "Melee"    
+  Experience: 20
+  AP: 5
+  DP: 2
+
+Slime:
+  Name: "Slime"
+  HP: 10
+  AttackStrategy: "Default"
+  Experience: 10
+  AP: 4
+  DP: 1
+
+Boss:
+  Name: "Boss"
+  HP: 100
+  AttackStrategy: "Magic"
+  Experience: 50
+  AP: 10
+  DP: 5
