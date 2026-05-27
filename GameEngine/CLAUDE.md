@@ -21,9 +21,14 @@ Program.cs (エントリポイント / Composition Root)
 - 依存の組み立てを集約する唯一の合成起点。`GameConfigLoader.Instance` への直アクセスはここに限定する
 - `GameConfigLoader.Instance` で `GameConfig` を一度だけ取得（起動時バリデーション）し、以降は引数で明示注入
 - プレイヤー名をコンソール入力（空の場合は "Hero"）
-- `CreatePlayer(name, config)` で `ExperienceManager`, `InventoryManager` を注入して `Player` を生成。攻撃戦略名は `AttackStrategyNames.Default` 定数を使用
-- `EventManager` を生成し、`Player` / `IGameInput` / `IPlayerRepository?` とともに `GameSystem` にコンストラクタ注入
-- `using` で `GameSystem`（IDisposable）を生成し `RunGameLoop()` を実行 → `GameMessageBus` 購読をスコープ終了時に解除
+- `CreatePlayer(name, config)`:
+  - `ExperienceManager(config.LevelUp.ExperienceRequired)` を生成
+  - `InventoryManager(config.Player.InitialGold, config.Player.InitialPotions, config.Items.Potion.Price)` を生成
+  - `new Player(name, config, AttackStrategy.GetAttackStrategy(AttackStrategyNames.Default), experienceManager, inventoryManager)` — `GameConfig` 全体を `Player` に注入
+- `ConsoleGameInput(config.Items.Potion.Price, config.Items.Potion.HealAmount)` を生成
+- `IEnemyFactory enemyFactory = new EnemyFactory(config.Enemy)` を生成
+- `new EventManager(player, gameInput, config, enemyFactory)` を生成（`IEnemyFactory` を受け取る）
+- `using var gameSystem = new GameSystem(player, gameInput, eventManager, playerRepository)`（IDisposable）を生成し `RunGameLoop()` を実行 → `GameMessageBus` 購読をスコープ終了時に解除
 - 例外発生時は `Environment.Exit(1)` で終了
 
 ## YAML 設定ファイル
@@ -55,10 +60,9 @@ Program.cs (エントリポイント / Composition Root)
 
 ## Constants/GameConstants.cs
 
-- **非推奨（DEPRECATED）**: 後方互換性のために残存
-- 全プロパティが `GameConfigLoader.Instance` へ委譲するラッパー
-- `AttackDamage` ネストクラスのみ `const` 値を保持（Default/Melee/Magic のダメージ範囲）
-- 新規コードでは `GameConfigLoader.Instance` を直接使用すること
+- 設定で外部化しない純粋な固定値のみを保持する静的クラス
+- `AttackDamage` ネストクラスのみを持ち、攻撃戦略のダメージ範囲を `const` で定義（Default/Melee/Magic）
+- 設定値はすべて `GameConfig` のコンストラクタ注入で取得する（このクラスは設定を委譲しない）
 
 ## 外部依存パッケージ
 

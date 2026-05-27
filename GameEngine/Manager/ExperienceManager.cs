@@ -1,12 +1,24 @@
-﻿using GameEngine.Constants;
-using GameEngine.Models;
+﻿using GameEngine.Models;
 
 namespace GameEngine.Manager
 {
     public class ExperienceManager
     {
+        private readonly int _experienceRequiredForLevelUp;
+
         public int TotalExperience { get; private set; } = 0;
         public int Level { get; private set; } = 1;
+
+        public ExperienceManager(int experienceRequiredForLevelUp)
+        {
+            if (experienceRequiredForLevelUp <= 0)
+                throw new ArgumentOutOfRangeException(
+                    nameof(experienceRequiredForLevelUp),
+                    "Experience required for level up must be positive");
+
+            _experienceRequiredForLevelUp = experienceRequiredForLevelUp;
+        }
+
         /// <summary>
         /// Gain experience points and check for level up.
         /// </summary>
@@ -16,10 +28,10 @@ namespace GameEngine.Manager
         {
             TotalExperience += amount;
             GameMessageBus.Publish($"You gain {amount} experience", MessageType.Experience);
-            if (TotalExperience >= GameConstants.ExperienceRequiredForLevelUp)
+            if (TotalExperience >= _experienceRequiredForLevelUp)
             {
                 Level++;
-                TotalExperience -= GameConstants.ExperienceRequiredForLevelUp;
+                TotalExperience -= _experienceRequiredForLevelUp;
                 GameMessageBus.Publish($"Level UP to level {Level}!", MessageType.Experience);
                 return 1;
             }

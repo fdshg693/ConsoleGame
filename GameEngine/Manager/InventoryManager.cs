@@ -1,17 +1,28 @@
-﻿using GameEngine.Constants;
-using GameEngine.Interfaces;
+﻿using GameEngine.Interfaces;
 using GameEngine.Models;
 
 namespace GameEngine.Manager
 {
     public class InventoryManager : IEquipmentStatsProvider
     {
-        public int TotalGold { get; private set; } = GameConstants.InitialGold;
+        private readonly int _potionPrice;
+
+        public int TotalGold { get; private set; }
         public IWeapon Weapon { get; private set; }
         public event Action? EquipmentChanged;
-        public int TotalPotions { get; private set; } = GameConstants.InitialPotions;
-        public InventoryManager()
+        public int TotalPotions { get; private set; }
+        public InventoryManager(int initialGold, int initialPotions, int potionPrice)
         {
+            if (initialGold < 0)
+                throw new ArgumentOutOfRangeException(nameof(initialGold), "Initial gold cannot be negative");
+            if (initialPotions < 0)
+                throw new ArgumentOutOfRangeException(nameof(initialPotions), "Initial potions cannot be negative");
+            if (potionPrice < 0)
+                throw new ArgumentOutOfRangeException(nameof(potionPrice), "Potion price cannot be negative");
+
+            TotalGold = initialGold;
+            TotalPotions = initialPotions;
+            _potionPrice = potionPrice;
             Weapon = new Weapon(0, 0, 0, "Default");
         }
         public void EquipWeapon(IWeapon newWeapon)
@@ -27,9 +38,9 @@ namespace GameEngine.Manager
         }
         public void BuyPotion(int amount)
         {
-            if (TotalGold >= amount * GameConstants.PotionPrice)
+            if (TotalGold >= amount * _potionPrice)
             {
-                TotalGold -= amount * GameConstants.PotionPrice;
+                TotalGold -= amount * _potionPrice;
                 TotalPotions += amount;
                 GameMessageBus.Publish($"You bought {amount} potions", MessageType.Success);
             }

@@ -18,12 +18,14 @@ namespace GameEngine.Systems
         private readonly Random _random;
         private readonly GameConfig _config;
 
-        public EventManager(IPlayer player, IGameInput input, GameConfig config)
+        public EventManager(IPlayer player, IGameInput input, GameConfig config, IEnemyFactory enemyFactory)
         {
             _player = player ?? throw new ArgumentNullException(nameof(player));
             _input = input ?? throw new ArgumentNullException(nameof(input));
             _config = config ?? throw new ArgumentNullException(nameof(config));
-            _battleManager = new BattleManager(_player, _input);
+            if (enemyFactory == null)
+                throw new ArgumentNullException(nameof(enemyFactory));
+            _battleManager = new BattleManager(_player, _input, enemyFactory);
             _random = new Random();
         }
 
@@ -84,12 +86,13 @@ namespace GameEngine.Systems
             messages.Add(GameStateMapper.CreateMessage($"You received {goldReward} gold as a discovery bonus!", MessageType.Gold));
 
             // ショップをループで開く（Exit選択まで繰り返し）
-            var shopState = ShopSystem.CreateShopState();
+            int potionPrice = _config.Items.Potion.Price;
+            var shopState = ShopSystem.CreateShopState(potionPrice);
             while (true)
             {
                 var playerState = _player.ToPlayerState();
                 var shopAction = _input.SelectShopAction(shopState, playerState);
-                messages.AddRange(ShopSystem.ProcessShopAction(_player, shopAction));
+                messages.AddRange(ShopSystem.ProcessShopAction(_player, shopAction, potionPrice));
 
                 if (shopAction.ShopType == ShopActionType.Exit)
                 {

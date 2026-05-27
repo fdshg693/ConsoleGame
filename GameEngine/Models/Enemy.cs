@@ -1,6 +1,4 @@
-using GameEngine.Constants;
 using GameEngine.Interfaces;
-using GameEngine.Models;
 
 namespace GameEngine.Models
 {
@@ -19,14 +17,14 @@ namespace GameEngine.Models
         public int YieldExperience { get; private set; } = 0;
         public int YieldGold { get; private set; } = 0;
 
-        public Enemy(string name, int hp, IAttackStrategy attackStrategy, int experience, int aP, int dP)
+        public Enemy(string name, int hp, IAttackStrategy attackStrategy, int experience, int aP, int dP, int yieldGold)
         {
             Name = name;
             HP = hp;
             BaseHP = hp;
             AttackStrategy = attackStrategy;
             YieldExperience = experience;
-            YieldGold = (experience / GameConstants.EnemyGoldBaseMultiplier) + new Random().Next(GameConstants.EnemyGoldRandomMin, GameConstants.EnemyGoldRandomMax);
+            YieldGold = yieldGold;
             BaseAP = aP;
             BaseDP = dP;
         }

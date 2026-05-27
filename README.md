@@ -10,8 +10,6 @@ cd GameEngine
 dotnet run
 ```
 
-詳細は [QUICKSTART.md](QUICKSTART.md) を参照してください。
-
 ## 特徴
 
 - **ターン制バトルシステム**: プレイヤーと敵が交互に攻撃する戦闘システム
@@ -56,8 +54,6 @@ docker-compose ps
 これで以下が利用可能になります：
 - **MongoDB**: ポート 27017（ゲームから接続）
 - **Mongo Express**: http://localhost:8081（Web UI）
-
-詳細な手順は [MONGODB_SETUP.md](MONGODB_SETUP.md) を参照してください。
 
 **MongoDB操作の詳細**については [docs/mongo.md](docs/mongo.md) を参照してください。
 

@@ -44,14 +44,18 @@ GameSystem.RunGameLoop()
 - `IPlayerRepository` が null（MongoDB 利用不可）の場合、セーブ時に `GameFlowContext` が「利用不可」を通知して続行する
 
 ### EventManager
+- コンストラクタ: `EventManager(IPlayer player, IGameInput input, GameConfig config, IEnemyFactory enemyFactory)`
+- `enemyFactory` を `new BattleManager(player, input, enemyFactory)` に渡して内部の `BattleManager` を生成
 - `TriggerRandomEvent()` でショップまたは戦闘イベントを発生させる
-- `GameConfig` をコンストラクタ注入で受け取る（旧: `GameConfigLoader.Instance` 直アクセス）
 - イベント重みは注入された `_config` から取得（`_config.Events.ShopEventWeight` / `TotalWeight`）
 - ショップイベント時はゴールド報酬（ランダム範囲）も付与される
+- ショップ呼び出し時はポーション価格 `config.Items.Potion.Price` を `ShopSystem.CreateShopState(potionPrice)` と `ShopSystem.ProcessShopAction(player, action, potionPrice)` に渡す
 - `GameEventType` 列挙型に `Treasure` / `Rest` が予約済み（未実装）
 
 ### ConsoleGameInput
 - `IGameInput` インターフェースのコンソール向け実装
+- コンストラクタ: `ConsoleGameInput(int potionPrice, int potionHealAmount)`
+- 注入された `potionPrice` / `potionHealAmount` をショップ・休憩の表示に使用（`GameConstants` は参照しない）
 - テスト時はモックに差し替え可能
 - 戦闘行動: `UserInteraction.SelectAttackStrategy()` に委譲
 - ショップ行動: 数字キー（1/2/3）で操作
@@ -66,8 +70,8 @@ GameSystem.RunGameLoop()
 - `SelectGameAction()` - 上下キーで続行/セーブ/終了を選択
 
 ### ShopSystem (static)
-- `CreateShopState()` - 武器一覧（SWORD / AXE / BOW）とポーション価格で `ShopState` を生成
-- `ProcessShopAction()` - `ShopAction` に基づきポーション購入・武器装備・退店を処理
+- `CreateShopState(int potionPrice)` - 武器一覧（SWORD / AXE / BOW）と注入されたポーション価格で `ShopState` を生成
+- `ProcessShopAction(IPlayer player, ShopAction action, int potionPrice)` - `ShopAction` に基づきポーション購入・武器装備・退店を処理（価格は引数で受け取り、`GameConstants.PotionPrice` は参照しない）
 - `PlayerActionValidator` でバリデーション済み
 
 ### RestSystem (static)
@@ -83,8 +87,9 @@ GameSystem.RunGameLoop()
 ## BattleSystem サブフォルダ
 
 ### BattleManager
+- コンストラクタ: `BattleManager(IPlayer player, IGameInput input, IEnemyFactory enemyFactory)`
 - ターン制戦闘ループを管理する
-- `StartBattle()` で `EnemyFactory.CreateRandomEnemy()` を呼び敵を生成
+- `StartBattle()` で注入された `_enemyFactory.CreateRandomEnemy()` を呼び敵を生成（敵注入・決定性のテストシームとなる）
 - 各ターンの流れ:
   1. `IGameInput.SelectAttackAction()` でプレイヤーの攻撃戦略を取得
   2. `Player.Attack(enemy)` でプレイヤー攻撃

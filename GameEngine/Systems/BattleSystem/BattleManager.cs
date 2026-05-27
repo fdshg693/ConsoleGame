@@ -1,6 +1,5 @@
 using GameEngine.Constants;
 using GameEngine.DTOs;
-using GameEngine.Factory;
 using GameEngine.Interfaces;
 using GameEngine.Mappers;
 using GameEngine.Models;
@@ -15,11 +14,13 @@ namespace GameEngine.Systems.BattleSystem
     {
         private readonly IPlayer _player;
         private readonly IGameInput _input;
+        private readonly IEnemyFactory _enemyFactory;
 
-        public BattleManager(IPlayer player, IGameInput input)
+        public BattleManager(IPlayer player, IGameInput input, IEnemyFactory enemyFactory)
         {
             _player = player ?? throw new ArgumentNullException(nameof(player));
             _input = input ?? throw new ArgumentNullException(nameof(input));
+            _enemyFactory = enemyFactory ?? throw new ArgumentNullException(nameof(enemyFactory));
         }
 
         /// <summary>
@@ -30,7 +31,7 @@ namespace GameEngine.Systems.BattleSystem
             var messages = new List<GameMessage>();
             try
             {
-                IEnemy enemy = EnemyFactory.CreateRandomEnemy();
+                IEnemy enemy = _enemyFactory.CreateRandomEnemy();
                 messages.Add(GameStateMapper.CreateMessage($"A wild {enemy.Name} appears!", MessageType.Combat));
 
                 return ExecuteBattle(enemy, messages);

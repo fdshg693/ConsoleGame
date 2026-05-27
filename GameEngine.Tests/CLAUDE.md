@@ -24,7 +24,8 @@ dotnet test --filter "FullyQualifiedName~GameEngine.Tests.Models"
 
 ### Factory/
 
-- **EnemyFactoryTests.cs** -- `EnemyFactory` の静的メソッドを検証
+- **EnemyFactoryTests.cs** -- 注入された `EnemyFactory` インスタンスのメソッドを検証
+  - `EnemyConfig` とシード固定の `Random` を注入してインスタンス化（静的依存を排除した seam）
   - `GetAvailableEnemyKeys()` が既知の敵キー（例: "Goblin"）を含むこと
   - `Create("Goblin")` が名前・MaxHP・AttackStrategy の正しい Enemy を返すこと
   - 実際の `enemy-specs.yml` を読み込むため、YAML の変更がテストに影響する

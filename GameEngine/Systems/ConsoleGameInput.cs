@@ -1,4 +1,3 @@
-using GameEngine.Constants;
 using GameEngine.DTOs;
 using GameEngine.Interfaces;
 
@@ -9,6 +8,15 @@ namespace GameEngine.Systems
     /// </summary>
     public class ConsoleGameInput : IGameInput
     {
+        private readonly int _potionPrice;
+        private readonly int _potionHealAmount;
+
+        public ConsoleGameInput(int potionPrice, int potionHealAmount)
+        {
+            _potionPrice = potionPrice;
+            _potionHealAmount = potionHealAmount;
+        }
+
         public AttackAction SelectAttackAction(BattleState battleState, PlayerState playerState, EnemyState enemyState)
         {
             var strategyName = UserInteraction.SelectAttackStrategy(battleState.AvailableStrategies);
@@ -26,7 +34,7 @@ namespace GameEngine.Systems
             var mainOptions = new[] { "Buy Potion", "Buy Weapon", "Exit Shop" };
             var descriptions = new[]
             {
-                $"{GameConstants.PotionPrice}g each, heals {GameConstants.PotionHealAmount} HP",
+                $"{_potionPrice}g each, heals {_potionHealAmount} HP",
                 "Equip a new weapon",
                 ""
             };
@@ -109,7 +117,7 @@ namespace GameEngine.Systems
             ConsoleRenderer.WriteInfo($"  Potions: {playerState.Potions}");
             Console.WriteLine();
 
-            int healPerPotion = GameConstants.PotionHealAmount;
+            int healPerPotion = _potionHealAmount;
             int maxUseful = (int)Math.Ceiling((double)(playerState.MaxHP - playerState.HP) / healPerPotion);
             int maxOptions = Math.Min(playerState.Potions, Math.Min(maxUseful, 5));
 

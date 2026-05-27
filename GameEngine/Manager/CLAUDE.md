@@ -17,11 +17,12 @@
 - ゴールド、ポーション数、装備武器を管理
 - `EquipWeapon()` で武器変更時に `EquipmentChanged` イベントを発火 → `HealthManager` に通知
 - `BuyPotion()` / `UsePotion()` でポーション売買・使用（ゴールド不足/ポーション不足時は警告メッセージ）
-- 初期値は `GameConstants.InitialGold` / `GameConstants.InitialPotions`
+- コンストラクタ `InventoryManager(int initialGold, int initialPotions, int potionPrice)`: 初期ゴールド・初期ポーション数・ポーション単価を引数で注入（負数は `ArgumentOutOfRangeException`）
 
 ### ExperienceManager
 - 経験値とレベルを管理
-- `GainExperience()`: 経験値を加算し、`GameConstants.ExperienceRequiredForLevelUp` に到達したらレベルアップ（戻り値 1）
+- コンストラクタ `ExperienceManager(int experienceRequiredForLevelUp)`: レベルアップ閾値を引数で注入（0以下は `ArgumentOutOfRangeException`）
+- `GainExperience()`: 経験値を加算し、注入された閾値 `experienceRequiredForLevelUp` に到達したらレベルアップ（戻り値 1）
 - 現状レベルアップは1回分のみ処理（超過分の連続レベルアップは未対応）
 
 ### CombatManager
@@ -31,8 +32,9 @@
 
 ### RewardManager（CombatManager.cs 内に同居）
 - 敵撃破時の報酬処理を一元管理
+- コンストラクタ `RewardManager(InventoryManager, ExperienceManager, HealthManager, Action<int> increaseBaseAP, int levelUpHPIncrease, int levelUpDPIncrease, int levelUpAPIncrease)`: レベルアップ時の HP/DP/AP 増加量を引数で注入
 - `ProcessEnemyDefeat()`: ゴールド獲得 → 経験値獲得 → レベルアップ判定を順次実行
-- レベルアップ時は `GameConstants` の増加量で HP/DP/AP を強化
+- レベルアップ時は注入された増加量で HP/DP/AP を強化
 
 ### MongoPlayerRepository（`IPlayerRepository` 実装）
 - `IPlayerRepository` インターフェースの MongoDB 実装
@@ -72,5 +74,5 @@ InMemoryPlayerRepository ──implements──> IPlayerRepository (テスト用
 ## 変更時の注意事項
 
 - `HealthManager` と `InventoryManager` は `EquipmentChanged` イベントで結合しているため、装備関連の変更時は両方への影響を確認すること
-- `RewardManager` はレベルアップ時の増加量を `GameConstants` から取得するため、バランス調整は `GameConstants` を変更する
+- `RewardManager` のレベルアップ増加量や `InventoryManager` / `ExperienceManager` の初期値・閾値は全てコンストラクタ注入されるため、バランス調整は合成起点（`Program.cs`）で注入する `GameConfig` を変更する（`GameConstants` ではない）
 - `IPlayerRepository` の実装を変更する場合は `PlayerSaveData` モデルとの整合性を維持すること

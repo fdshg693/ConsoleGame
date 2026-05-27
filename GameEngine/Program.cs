@@ -1,5 +1,6 @@
 ﻿using GameEngine.Configuration;
 using GameEngine.Constants;
+using GameEngine.Factory;
 using GameEngine.Interfaces;
 using GameEngine.Manager;
 using GameEngine.Models;
@@ -34,8 +35,14 @@ namespace CliRpgGame
                 // リポジトリの初期化（MongoDBが利用できない場合はnull）
                 IPlayerRepository? playerRepository = CreatePlayerRepository(config);
 
-                var gameInput = new ConsoleGameInput();
-                var eventManager = new EventManager(player, gameInput, config);
+                var gameInput = new ConsoleGameInput(
+                    config.Items.Potion.Price,
+                    config.Items.Potion.HealAmount);
+
+                // 敵生成ファクトリ（設定を注入し、戦闘フローへ引き回す継ぎ目）
+                IEnemyFactory enemyFactory = new EnemyFactory(config.Enemy);
+
+                var eventManager = new EventManager(player, gameInput, config, enemyFactory);
 
                 // ゲームシステムの初期化と実行（IDisposable で GameMessageBus の購読を解除）
                 using var gameSystem = new GameSystem(player, gameInput, eventManager, playerRepository);
@@ -76,12 +83,15 @@ namespace CliRpgGame
         /// </summary>
         private static IPlayer CreatePlayer(string name, GameConfig config)
         {
-            var experienceManager = new ExperienceManager();
-            var inventoryManager = new InventoryManager();
+            var experienceManager = new ExperienceManager(config.LevelUp.ExperienceRequired);
+            var inventoryManager = new InventoryManager(
+                config.Player.InitialGold,
+                config.Player.InitialPotions,
+                config.Items.Potion.Price);
 
             return new Player(
                 name,
-                config.Player.InitialHP,
+                config,
                 AttackStrategy.GetAttackStrategy(AttackStrategyNames.Default),
                 experienceManager,
                 inventoryManager);

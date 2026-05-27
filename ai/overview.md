@@ -14,8 +14,8 @@ Program(config) -> GameSystem(Player, Input, EventManager, IPlayerRepository?) -
 ## Core Patterns (project-specific)
 
 - **Strategy**: `IAttackStrategy` with `Default`/`Melee`/`Magic`. Strategy names are centralized in `AttackStrategyNames` ([./../GameEngine/Constants/AttackStrategyNames.cs](./../GameEngine/Constants/AttackStrategyNames.cs)). Mapping is in `AttackStrategy.GetAttackStrategy()` and `EnemyFactory.Create()` (keep names aligned with YAML).
-- **Factory**: `EnemyFactory` loads YAML specs at startup and creates enemies; `WeaponFactory` centralizes weapon creation.
-- **Managers**: `HealthManager` uses `IEquipmentStatsProvider` from inventory to compute HP/AP/DP; `ExperienceManager` drives level growth.
+- **Factory**: `EnemyFactory` はインスタンスクラスで `IEnemyFactory` を実装し、合成起点で生成して Program → EventManager → BattleManager と注入する（静的な起動時ローダーではない）。コンストラクタで `EnemyConfig` + `Random` を受け取り、`AppContext.BaseDirectory` フォールバック付きのパスで自身の YAML specs を読み込む。`WeaponFactory` centralizes weapon creation.
+- **Managers**: `HealthManager` uses `IEquipmentStatsProvider` from inventory to compute HP/AP/DP; `ExperienceManager` drives level growth. ドメインクラス（`Player`・各 Manager・`Enemy`）は設定を静的な `GameConstants` ラッパー経由ではなく `GameConfig`/サブ設定値のコンストラクタ注入で受け取る（`GameConstants` は固定の `AttackDamage` const のみを保持）。
 - **Repository**: `IPlayerRepository` abstracts persistence. `MongoPlayerRepository`（本番）と `InMemoryPlayerRepository`（テスト用）を切り替え可能。`GameSystem` にコンストラクタ注入される。
 
 ## Configuration & External Dependencies

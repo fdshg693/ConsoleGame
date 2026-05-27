@@ -7,10 +7,18 @@
 ### ドメインモデル
 
 - **Player.cs** - プレイヤーエンティティ（`IPlayer` 実装）
+  - コンストラクタ: `Player(string name, GameConfig config, IAttackStrategy attackStrategy, ExperienceManager experienceManager, InventoryManager inventoryManager)`
+  - 注入された `GameConfig` から値を導出:
+    - `BaseAP` ← `config.Player.BaseAP`
+    - `HealthManager` の初期HP/基礎DP ← `config.Player.InitialHP` / `config.Player.BaseDP`
+    - ポーション回復量（`UsePotion`） ← `config.Items.Potion.HealAmount`
+    - レベルアップ増加値（`RewardManager` へ） ← `config.LevelUp.HPIncrease` / `DPIncrease` / `APIncrease`
   - Manager パターンで責務分離: `HealthManager`, `InventoryManager`, `ExperienceManager`, `CombatManager`, `RewardManager`
   - `Level`, `TotalExperience`, `EquippedWeaponName` を `IPlayer` 経由で直接公開
   - `GetSaveData()` で `PlayerSaveData`（`GameEngine.DTOs`）を生成
 - **Enemy.cs** - 敵エンティティ（`IEnemy` 実装）
+  - コンストラクタ: `Enemy(string name, int hp, IAttackStrategy attackStrategy, int experience, int aP, int dP, int yieldGold)`
+  - `YieldGold` はコンストラクタ引数で受け取る（`EnemyFactory` が算出）
   - `IAttackStrategy` を保持、`ChangeAttackStrategy()` で戦闘中に切替可能
 - **Weapon.cs** - 武器の値オブジェクト（`IWeapon` 実装、読み取り専用）
 
@@ -18,6 +26,8 @@
 
 - **AttackStrategy.cs** - `IAttackStrategy` 実装群 + ファクトリ
   - `DefaultAttackStrategy` / `MeleeAttackStrategy` / `MagicAttackStrategy`
+  - ダメージは `Random.Shared.Next()` で算出（共有インスタンスで連続生成時の同一シード問題を回避）
+  - ダメージ範囲は `GameConstants.AttackDamage` の `const` 値（Default/Melee/Magic）
   - 戦略名は `AttackStrategyNames`（`GameEngine.Constants`）で一元管理
   - 新戦略追加手順: クラス実装 → `GetAttackStrategy()` switch 追加 → `AttackStrategyNames` 更新 → YAML 名と一致させる
 

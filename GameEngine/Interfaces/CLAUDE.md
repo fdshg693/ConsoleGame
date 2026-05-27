@@ -52,6 +52,13 @@ ICharacter
 - `SelectRestAction()` - 休憩時のアイテム使用選択
 - 実装: `Systems/ConsoleGameInput`
 
+### IEnemyFactory
+- 敵生成を抽象化し、テスト時にインメモリ実装/モックへ差し替えるための継ぎ目（seam）
+- `Create(string key)` - キー指定で敵を生成
+- `CreateRandomEnemy()` - 登録済みの敵からランダムに1体生成
+- `GetAvailableEnemyKeys()` - 利用可能な敵キー一覧を取得
+- 実装: `Factory/EnemyFactory`（`GameEngine.Factory`）
+
 ## 変更時の注意点
 
 - `IAttackStrategy` の新規実装を追加する場合は、`Models/AttackStrategy.cs` のマッピングと `Systems/UserInteraction.cs` の UI 選択肢も更新すること

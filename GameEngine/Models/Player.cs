@@ -1,4 +1,4 @@
-using GameEngine.Constants;
+using GameEngine.Configuration;
 using GameEngine.DTOs;
 using GameEngine.Interfaces;
 using GameEngine.Manager;
@@ -22,8 +22,11 @@ namespace GameEngine.Models
         private readonly RewardManager _reward;
 
         // 基礎ステータス
-        private int BaseAP { get; set; } = GameConstants.PlayerBaseAP;
-        
+        private int BaseAP { get; set; }
+
+        // ポーション1個あたりの回復量（設定から注入）
+        private readonly int _potionHealAmount;
+
         // 攻撃戦略名を取得するためのプロパティ
         private string CurrentAttackStrategyName => _combat.GetCurrentStrategyName();
 
@@ -39,25 +42,29 @@ namespace GameEngine.Models
 
         public Player(
             string name,
-            int initialHP,
+            GameConfig config,
             IAttackStrategy attackStrategy,
             ExperienceManager experienceManager,
             InventoryManager inventoryManager)
         {
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("Player name cannot be null or empty", nameof(name));
+            if (config == null)
+                throw new ArgumentNullException(nameof(config));
 
             Name = name;
+            BaseAP = config.Player.BaseAP;
+            _potionHealAmount = config.Items.Potion.HealAmount;
             _experience = experienceManager ?? throw new ArgumentNullException(nameof(experienceManager));
             _inventory = inventoryManager ?? throw new ArgumentNullException(nameof(inventoryManager));
             _health = new HealthManager(
-                baseHP: initialHP, 
-                baseDP: GameConstants.PlayerBaseDP, 
+                baseHP: config.Player.InitialHP,
+                baseDP: config.Player.BaseDP,
                 equipProvider: _inventory);
 
             // 戦闘マネージャーの初期化
             _combat = new CombatManager(
-                attackStrategy, 
+                attackStrategy,
                 () => AP,
                 Name);
 
@@ -66,7 +73,10 @@ namespace GameEngine.Models
                 _inventory,
                 _experience,
                 _health,
-                amount => BaseAP += amount);
+                amount => BaseAP += amount,
+                levelUpHPIncrease: config.LevelUp.HPIncrease,
+                levelUpDPIncrease: config.LevelUp.DPIncrease,
+                levelUpAPIncrease: config.LevelUp.APIncrease);
         }
 
         #region Equipment Management
@@ -124,7 +134,7 @@ namespace GameEngine.Models
                 throw new ArgumentException("Potion amount must be positive", nameof(amount));
 
             _inventory.UsePotion(amount);
-            Heal(GameConstants.PotionHealAmount * amount);
+            Heal(_potionHealAmount * amount);
         }
 
         #endregion

@@ -1,4 +1,3 @@
-using GameEngine.Constants;
 using GameEngine.Interfaces;
 using GameEngine.Models;
 
@@ -66,17 +65,26 @@ namespace GameEngine.Manager
         private readonly ExperienceManager _experience;
         private readonly HealthManager _health;
         private readonly Action<int> _increaseBaseAP;
+        private readonly int _levelUpHPIncrease;
+        private readonly int _levelUpDPIncrease;
+        private readonly int _levelUpAPIncrease;
 
         public RewardManager(
             InventoryManager inventory,
             ExperienceManager experience,
             HealthManager health,
-            Action<int> increaseBaseAP)
+            Action<int> increaseBaseAP,
+            int levelUpHPIncrease,
+            int levelUpDPIncrease,
+            int levelUpAPIncrease)
         {
             _inventory = inventory ?? throw new ArgumentNullException(nameof(inventory));
             _experience = experience ?? throw new ArgumentNullException(nameof(experience));
             _health = health ?? throw new ArgumentNullException(nameof(health));
             _increaseBaseAP = increaseBaseAP ?? throw new ArgumentNullException(nameof(increaseBaseAP));
+            _levelUpHPIncrease = levelUpHPIncrease;
+            _levelUpDPIncrease = levelUpDPIncrease;
+            _levelUpAPIncrease = levelUpAPIncrease;
         }
 
         /// <summary>
@@ -109,10 +117,10 @@ namespace GameEngine.Manager
             for (int i = 0; i < levels; i++)
             {
                 _health.LevelUp(
-                    hpIncrease: GameConstants.LevelUpHPIncrease, 
-                    dpIncrease: GameConstants.LevelUpDPIncrease);
-                
-                _increaseBaseAP(GameConstants.LevelUpAPIncrease);
+                    hpIncrease: _levelUpHPIncrease,
+                    dpIncrease: _levelUpDPIncrease);
+
+                _increaseBaseAP(_levelUpAPIncrease);
             }
 
             GameMessageBus.Publish($"Leveled up {levels} time(s)!", MessageType.Experience);

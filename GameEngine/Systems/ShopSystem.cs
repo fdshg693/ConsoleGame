@@ -1,5 +1,4 @@
-﻿using GameEngine.Constants;
-using GameEngine.DTOs;
+﻿using GameEngine.DTOs;
 using GameEngine.Factory;
 using GameEngine.Interfaces;
 using GameEngine.Mappers;
@@ -9,9 +8,9 @@ namespace GameEngine.Systems
 {
     public static class ShopSystem
     {
-        public static ShopState CreateShopState()
+        public static ShopState CreateShopState(int potionPrice)
         {
-            var shopState = GameStateMapper.CreateInitialShopState(GameConstants.PotionPrice);
+            var shopState = GameStateMapper.CreateInitialShopState(potionPrice);
             shopState.AvailableWeapons = new List<WeaponInfo>
             {
                 WeaponFactory.CreateWeapon("SWORD").ToWeaponInfo(),
@@ -22,7 +21,7 @@ namespace GameEngine.Systems
             return shopState;
         }
 
-        public static List<GameMessage> ProcessShopAction(IPlayer player, ShopAction action)
+        public static List<GameMessage> ProcessShopAction(IPlayer player, ShopAction action, int potionPrice)
         {
             if (player == null)
                 throw new ArgumentNullException(nameof(player));
@@ -40,7 +39,7 @@ namespace GameEngine.Systems
             switch (action.ShopType)
             {
                 case ShopActionType.BuyPotion:
-                    int totalCost = action.Quantity * GameConstants.PotionPrice;
+                    int totalCost = action.Quantity * potionPrice;
                     if (player.ReturnTotalGold() < totalCost)
                     {
                         messages.Add(GameStateMapper.CreateMessage("Not enough gold!", MessageType.Warning));
