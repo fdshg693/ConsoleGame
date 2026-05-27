@@ -15,12 +15,14 @@ namespace GameEngine.Systems.BattleSystem
         private readonly IPlayer _player;
         private readonly IGameInput _input;
         private readonly IEnemyFactory _enemyFactory;
+        private readonly IRenderer _renderer;
 
-        public BattleManager(IPlayer player, IGameInput input, IEnemyFactory enemyFactory)
+        public BattleManager(IPlayer player, IGameInput input, IEnemyFactory enemyFactory, IRenderer renderer)
         {
             _player = player ?? throw new ArgumentNullException(nameof(player));
             _input = input ?? throw new ArgumentNullException(nameof(input));
             _enemyFactory = enemyFactory ?? throw new ArgumentNullException(nameof(enemyFactory));
+            _renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
         }
 
         /// <summary>
@@ -55,10 +57,10 @@ namespace GameEngine.Systems.BattleSystem
                 battleTurn++;
 
                 // Clear screen and show status panel at start of each turn
-                ConsoleRenderer.ClearScreen($"BATTLE - Turn {battleTurn}");
+                _renderer.ClearScreen($"BATTLE - Turn {battleTurn}");
                 var playerState = _player.ToPlayerState();
                 var enemyState = enemy.ToEnemyState();
-                ConsoleRenderer.RenderStatusPanel(playerState, enemyState);
+                _renderer.RenderStatusPanel(playerState, enemyState);
 
                 // プレイヤーのターン
             ExecutePlayerTurn(enemy, battleTurn, messages);
@@ -129,9 +131,9 @@ namespace GameEngine.Systems.BattleSystem
         /// </summary>
         private void DisplayBattleStatus(IEnemy enemy, List<GameMessage> messages)
         {
-            ConsoleRenderer.WriteSeparator();
-            ConsoleRenderer.RenderHPBar(_player.Name, _player.HP, _player.MaxHP);
-            ConsoleRenderer.RenderHPBar(enemy.Name, enemy.HP, enemy.MaxHP);
+            _renderer.WriteSeparator();
+            _renderer.RenderHPBar(_player.Name, _player.HP, _player.MaxHP);
+            _renderer.RenderHPBar(enemy.Name, enemy.HP, enemy.MaxHP);
         }
 
         /// <summary>
@@ -145,8 +147,8 @@ namespace GameEngine.Systems.BattleSystem
 
             _player.DefeatEnemy(enemy);
 
-            ConsoleRenderer.WriteResultBox("VICTORY!", new[] { $"{enemy.Name} has been defeated!" }, true);
-            ConsoleRenderer.WaitForKeyPress();
+            _renderer.WriteResultBox("VICTORY!", new[] { $"{enemy.Name} has been defeated!" }, true);
+            _renderer.WaitForKeyPress();
 
             return new BattleResult(BattleOutcome.Victory, enemy, messages);
         }
@@ -160,8 +162,8 @@ namespace GameEngine.Systems.BattleSystem
             GameRecord.RecordLoss();
             messages.AddRange(GameRecord.GetRecordMessages());
 
-            ConsoleRenderer.WriteResultBox("DEFEAT", new[] { $"{_player.Name} has fallen..." }, false);
-            ConsoleRenderer.WaitForKeyPress();
+            _renderer.WriteResultBox("DEFEAT", new[] { $"{_player.Name} has fallen..." }, false);
+            _renderer.WaitForKeyPress();
 
             return new BattleResult(BattleOutcome.Defeat, enemy, messages);
         }

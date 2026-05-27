@@ -1,6 +1,7 @@
 using GameEngine.Configuration;
 using GameEngine.Factory;
 using GameEngine.Interfaces;
+using GameEngine.Models;
 using GameEngine.Systems;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -16,6 +17,7 @@ namespace GameEngine.DependencyInjection
     /// ホスト固有の実装は各ホストが登録する:
     /// <list type="bullet">
     ///   <item><see cref="IGameInput"/> … コンソール/API それぞれの入力実装</item>
+    ///   <item><see cref="IRenderer"/> … 出力（描画）実装。コンソールは ANSI、API はバッファ/DTO へ蓄積</item>
     ///   <item><see cref="IPlayer"/> … 実行時のプレイヤー名から生成（セッション単位）</item>
     ///   <item><see cref="IPlayerRepository"/> … 任意。未登録なら <see cref="GameSystem"/> はセーブ無効で動作</item>
     /// </list>
@@ -28,9 +30,15 @@ namespace GameEngine.DependencyInjection
             // 直アクセスはここ（DI 合成）に閉じ込め、各コンシューマは GameConfig 注入で受け取る。
             services.AddSingleton(_ => GameConfigLoader.Instance);
 
-            // 敵生成ファクトリ（設定由来の不変オブジェクト）
+            // ドメインメッセージバス（インスタンスベース）。発行側（Player/Manager/Enemy）と
+            // 購読側（GameSystem → IRenderer）が同一インスタンスを共有するよう Singleton 登録する。
+            services.AddSingleton<IGameMessageBus, GameMessageBus>();
+
+            // 敵生成ファクトリ（設定由来の不変オブジェクト）。生成する Enemy にメッセージバスを伝播する。
             services.AddSingleton<IEnemyFactory>(sp =>
-                new EnemyFactory(sp.GetRequiredService<GameConfig>().Enemy));
+                new EnemyFactory(
+                    sp.GetRequiredService<GameConfig>().Enemy,
+                    sp.GetRequiredService<IGameMessageBus>()));
 
             // 進行制御。IPlayer / IGameInput はホストが登録するため、
             // 解決時（ホストの登録完了後）に依存が満たされる。

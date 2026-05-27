@@ -1,34 +1,36 @@
 using GameEngine.DTOs;
 using GameEngine.Interfaces;
 
-namespace GameEngine.Systems
+namespace CliRpgGame.UI
 {
     /// <summary>
-    /// Console向けの入力実装
+    /// Console向けの入力実装。<see cref="ConsoleRenderer"/> でメニューを描画し、矢印キー/数字入力で行動を受け取る。
     /// </summary>
     public class ConsoleGameInput : IGameInput
     {
+        private readonly ConsoleRenderer _renderer;
         private readonly int _potionPrice;
         private readonly int _potionHealAmount;
 
-        public ConsoleGameInput(int potionPrice, int potionHealAmount)
+        public ConsoleGameInput(ConsoleRenderer renderer, int potionPrice, int potionHealAmount)
         {
+            _renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
             _potionPrice = potionPrice;
             _potionHealAmount = potionHealAmount;
         }
 
         public AttackAction SelectAttackAction(BattleState battleState, PlayerState playerState, EnemyState enemyState)
         {
-            var strategyName = UserInteraction.SelectAttackStrategy(battleState.AvailableStrategies);
+            var strategyName = UserInteraction.SelectAttackStrategy(_renderer, battleState.AvailableStrategies);
             return new AttackAction(strategyName);
         }
 
         public ShopAction SelectShopAction(ShopState shopState, PlayerState playerState)
         {
-            ConsoleRenderer.ClearScreen("SHOP");
-            ConsoleRenderer.WriteInfo($"  Gold: {playerState.Gold}    Potions: {playerState.Potions}    HP: {playerState.HP}/{playerState.MaxHP}");
+            _renderer.ClearScreen("SHOP");
+            _renderer.WriteInfo($"  Gold: {playerState.Gold}    Potions: {playerState.Potions}    HP: {playerState.HP}/{playerState.MaxHP}");
             Console.WriteLine();
-            ConsoleRenderer.WriteSeparator();
+            _renderer.WriteSeparator();
             Console.WriteLine();
 
             var mainOptions = new[] { "Buy Potion", "Buy Weapon", "Exit Shop" };
@@ -39,7 +41,7 @@ namespace GameEngine.Systems
                 ""
             };
 
-            int choice = ConsoleRenderer.SelectFromMenu(mainOptions, 0, ConsoleRenderer.MenuOrientation.Vertical, false, descriptions);
+            int choice = _renderer.SelectFromMenu(mainOptions, 0, ConsoleRenderer.MenuOrientation.Vertical, false, descriptions);
 
             if (choice == 0) // Buy Potion
             {
@@ -47,8 +49,8 @@ namespace GameEngine.Systems
                 int maxAffordable = playerState.Gold / shopState.PotionPrice;
                 if (maxAffordable <= 0)
                 {
-                    ConsoleRenderer.WriteWarning("  Not enough gold to buy potions!");
-                    ConsoleRenderer.WaitForKeyPress();
+                    _renderer.WriteWarning("  Not enough gold to buy potions!");
+                    _renderer.WaitForKeyPress();
                     return new ShopAction(ShopActionType.Exit);
                 }
 
@@ -62,8 +64,8 @@ namespace GameEngine.Systems
                 }
 
                 Console.WriteLine();
-                ConsoleRenderer.WriteInfo("  How many potions?");
-                int potionChoice = ConsoleRenderer.SelectFromMenu(potionOptions, 0, ConsoleRenderer.MenuOrientation.Vertical);
+                _renderer.WriteInfo("  How many potions?");
+                int potionChoice = _renderer.SelectFromMenu(potionOptions, 0, ConsoleRenderer.MenuOrientation.Vertical);
 
                 if (potionChoice <= 0)
                 {
@@ -86,8 +88,8 @@ namespace GameEngine.Systems
                 weaponOptions[^1] = "Back";
                 weaponDescriptions[^1] = "";
 
-                ConsoleRenderer.WriteInfo("  Choose a weapon:");
-                int weaponChoice = ConsoleRenderer.SelectFromMenu(weaponOptions, 0, ConsoleRenderer.MenuOrientation.Vertical, false, weaponDescriptions);
+                _renderer.WriteInfo("  Choose a weapon:");
+                int weaponChoice = _renderer.SelectFromMenu(weaponOptions, 0, ConsoleRenderer.MenuOrientation.Vertical, false, weaponDescriptions);
 
                 if (weaponChoice < 0 || weaponChoice >= shopState.AvailableWeapons.Count)
                 {
@@ -111,10 +113,10 @@ namespace GameEngine.Systems
             }
 
             Console.WriteLine();
-            ConsoleRenderer.WriteSeparator();
-            ConsoleRenderer.WriteInfo("  REST - Use Potions");
-            ConsoleRenderer.RenderHPBar(playerState.Name, playerState.HP, playerState.MaxHP);
-            ConsoleRenderer.WriteInfo($"  Potions: {playerState.Potions}");
+            _renderer.WriteSeparator();
+            _renderer.WriteInfo("  REST - Use Potions");
+            _renderer.RenderHPBar(playerState.Name, playerState.HP, playerState.MaxHP);
+            _renderer.WriteInfo($"  Potions: {playerState.Potions}");
             Console.WriteLine();
 
             int healPerPotion = _potionHealAmount;
@@ -129,7 +131,7 @@ namespace GameEngine.Systems
                 options[i] = $"Use {i} Potion{(i > 1 ? "s" : "")} (HP: {playerState.HP} -> {projectedHP})";
             }
 
-            int selected = ConsoleRenderer.SelectFromMenu(options, 0, ConsoleRenderer.MenuOrientation.Vertical);
+            int selected = _renderer.SelectFromMenu(options, 0, ConsoleRenderer.MenuOrientation.Vertical);
 
             if (selected <= 0)
             {
@@ -137,6 +139,25 @@ namespace GameEngine.Systems
             }
 
             return new UseItemAction("Potion", selected);
+        }
+
+        /// <summary>
+        /// エンカウント後の進行アクション（続行/セーブ/終了）を矢印キーで選択させる。
+        /// </summary>
+        public GameActionChoice SelectGameAction()
+        {
+            var actionArray = new[] { "Continue", "Save & Continue", "Save & Quit", "Quit" };
+
+            _renderer.WriteSection("What would you like to do?");
+            int selected = _renderer.SelectFromMenu(actionArray, 0, ConsoleRenderer.MenuOrientation.Vertical);
+
+            return selected switch
+            {
+                1 => GameActionChoice.SaveAndContinue,
+                2 => GameActionChoice.SaveAndQuit,
+                3 => GameActionChoice.Quit,
+                _ => GameActionChoice.Continue
+            };
         }
     }
 }

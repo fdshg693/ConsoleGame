@@ -43,7 +43,7 @@ namespace GameEngine.Factory
                     specs[kvp.Key] = kvp.Value;
                 }
 
-                Console.WriteLine(
+                System.Diagnostics.Debug.WriteLine(
                     $"Successfully loaded {specs.Count} {specLabelTitle.ToLowerInvariant()} specs from {yamlPath}");
                 return specs;
             }

@@ -13,7 +13,7 @@ namespace GameEngine.Tests.Manager
         public void EquipWeapon_UpdatesWeaponAndAffectsHealthManager()
         {
             // Arrange
-            var inventory = new InventoryManager(initialGold: 50, initialPotions: 0, potionPrice: 10);
+            var inventory = new InventoryManager(initialGold: 50, initialPotions: 0, potionPrice: 10, bus: new GameMessageBus());
             var health = new HealthManager(baseHP: 100, baseDP: 2, equipProvider: inventory);
 
             Assert.Equal(100, health.MaxHP);

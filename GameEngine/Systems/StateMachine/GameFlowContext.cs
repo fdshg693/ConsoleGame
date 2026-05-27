@@ -1,3 +1,4 @@
+using GameEngine.DTOs;
 using GameEngine.Interfaces;
 using GameEngine.Models;
 
@@ -8,7 +9,7 @@ namespace GameEngine.Systems.StateMachine
     /// </summary>
     public class GameFlowContext
     {
-        private readonly Action<IEnumerable<GameMessage>> _renderMessages;
+        private readonly IRenderer _renderer;
 
         public IPlayer Player { get; }
         public EventManager EventManager { get; }
@@ -20,13 +21,13 @@ namespace GameEngine.Systems.StateMachine
             EventManager eventManager,
             IGameInput input,
             IPlayerRepository? playerRepository,
-            Action<IEnumerable<GameMessage>> renderMessages)
+            IRenderer renderer)
         {
             Player = player ?? throw new ArgumentNullException(nameof(player));
             EventManager = eventManager ?? throw new ArgumentNullException(nameof(eventManager));
             Input = input ?? throw new ArgumentNullException(nameof(input));
             PlayerRepository = playerRepository;
-            _renderMessages = renderMessages ?? throw new ArgumentNullException(nameof(renderMessages));
+            _renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
         }
 
         public bool IsPlayerAlive => Player.IsAlive;
@@ -38,7 +39,13 @@ namespace GameEngine.Systems.StateMachine
 
         public void RenderMessages(IEnumerable<GameMessage> messages)
         {
-            _renderMessages(messages);
+            _renderer.RenderMessages(messages);
+        }
+
+        /// <summary>画面をクリアする（各 State から利用）。</summary>
+        public void ClearScreen(string title)
+        {
+            _renderer.ClearScreen(title);
         }
 
         public EventResult TriggerRandomEvent()
@@ -48,13 +55,13 @@ namespace GameEngine.Systems.StateMachine
 
         public void WriteLine(string text)
         {
-            ConsoleRenderer.WriteInfo(text);
+            _renderer.WriteInfo(text);
         }
 
         public void LogTransition(string fromState, string? toState)
         {
             var next = string.IsNullOrWhiteSpace(toState) ? "End" : toState;
-            ConsoleRenderer.WriteSystem($"[State] {fromState} -> {next}");
+            _renderer.WriteSystem($"[State] {fromState} -> {next}");
         }
 
         /// <summary>
@@ -62,27 +69,27 @@ namespace GameEngine.Systems.StateMachine
         /// </summary>
         public bool ConfirmContinue()
         {
-            string action = UserInteraction.SelectGameAction();
+            GameActionChoice action = Input.SelectGameAction();
 
             switch (action)
             {
-                case "continue":
+                case GameActionChoice.Continue:
                     return true;
 
-                case "save_continue":
+                case GameActionChoice.SaveAndContinue:
                     SaveGameAsync().Wait();
                     return true;
 
-                case "save_quit":
+                case GameActionChoice.SaveAndQuit:
                     SaveGameAsync().Wait();
                     return false;
 
-                case "quit":
-                    ConsoleRenderer.WriteInfo("\nExiting the game.");
+                case GameActionChoice.Quit:
+                    _renderer.WriteInfo("\nExiting the game.");
                     return false;
 
                 default:
-                    ConsoleRenderer.WriteWarning("\nInvalid selection. Continuing the game.");
+                    _renderer.WriteWarning("\nInvalid selection. Continuing the game.");
                     return true;
             }
         }
@@ -94,8 +101,8 @@ namespace GameEngine.Systems.StateMachine
         {
             if (PlayerRepository == null)
             {
-                ConsoleRenderer.WriteError("\nSave feature is unavailable.");
-                ConsoleRenderer.WriteInfo("  Please check the MongoDB connection.");
+                _renderer.WriteError("\nSave feature is unavailable.");
+                _renderer.WriteInfo("  Please check the MongoDB connection.");
                 return;
             }
 
@@ -105,12 +112,12 @@ namespace GameEngine.Systems.StateMachine
 
                 if (success)
                 {
-                    ConsoleRenderer.WriteSuccess("Game data saved successfully.");
+                    _renderer.WriteSuccess("Game data saved successfully.");
                 }
             }
             catch (Exception ex)
             {
-                ConsoleRenderer.WriteError($"\nFailed to save: {ex.Message}");
+                _renderer.WriteError($"\nFailed to save: {ex.Message}");
             }
         }
 
@@ -122,7 +129,7 @@ namespace GameEngine.Systems.StateMachine
             string title = Player.IsAlive ? "Thank you for playing!" : "GAME OVER";
             bool isVictory = Player.IsAlive;
 
-            ConsoleRenderer.WriteResultBox(title, new[]
+            _renderer.WriteResultBox(title, new[]
             {
                 $"Gold Earned: {Player.ReturnTotalGold()}",
                 $"Potions Remaining: {Player.ReturnTotalPotions()}"

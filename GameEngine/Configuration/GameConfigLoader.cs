@@ -121,7 +121,7 @@ namespace GameEngine.Configuration
                 string? resolvedPath = ResolveConfigPath(configPath);
                 if (resolvedPath == null)
                 {
-                    Console.WriteLine($"Config file not found (tried '{configPath}' and app base directory). Using default values.");
+                    System.Diagnostics.Debug.WriteLine($"Config file not found (tried '{configPath}' and app base directory). Using default values.");
                     return CreateDefaultConfig();
                 }
 
@@ -130,7 +130,7 @@ namespace GameEngine.Configuration
 
                 if (string.IsNullOrWhiteSpace(yaml))
                 {
-                    Console.WriteLine($"Config file is empty: {resolvedPath}. Using default values.");
+                    System.Diagnostics.Debug.WriteLine($"Config file is empty: {resolvedPath}. Using default values.");
                     return CreateDefaultConfig();
                 }
 
@@ -139,24 +139,24 @@ namespace GameEngine.Configuration
 
                 if (config == null)
                 {
-                    Console.WriteLine($"Failed to parse config file: {resolvedPath}. Using default values.");
+                    System.Diagnostics.Debug.WriteLine($"Failed to parse config file: {resolvedPath}. Using default values.");
                     return CreateDefaultConfig();
                 }
 
                 ValidateConfig(config);
-                Console.WriteLine($"Successfully loaded game configuration from {resolvedPath}");
+                System.Diagnostics.Debug.WriteLine($"Successfully loaded game configuration from {resolvedPath}");
                 return config;
             }
             catch (YamlDotNet.Core.YamlException ex)
             {
-                Console.WriteLine($"YAML parse error in {configPath}: {ex.Message}");
-                Console.WriteLine("Using default configuration values.");
+                System.Diagnostics.Debug.WriteLine($"YAML parse error in {configPath}: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine("Using default configuration values.");
                 return CreateDefaultConfig();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error loading config from {configPath}: {ex.Message}");
-                Console.WriteLine("Using default configuration values.");
+                System.Diagnostics.Debug.WriteLine($"Error loading config from {configPath}: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine("Using default configuration values.");
                 return CreateDefaultConfig();
             }
         }

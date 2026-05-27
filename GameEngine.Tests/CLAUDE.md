@@ -23,17 +23,23 @@ dotnet test --filter "FullyQualifiedName~GameEngine.Tests.Models"
 
 ## テスト構成
 
+### TestDoubles/
+
+- **NullRenderer.cs** -- `IRenderer` の no-op 実装。合成（DI）テストやロジックテストで出力に依存しない検証に使う
+
 ### DependencyInjection/
 
-- **ServiceCollectionExtensionsTests.cs** -- `AddGameEngine` の DI 合成の回帰テスト（フェーズ0）
+- **ServiceCollectionExtensionsTests.cs** -- `AddGameEngine` の DI 合成の回帰テスト
   - `GameConfig` が Singleton 登録されること（同一インスタンス）
   - `IEnemyFactory` が解決でき、敵キーが存在すること
-  - ホスト合成を再現（スタブ `IGameInput` + 固定名 `IPlayer`）し、リポジトリ有無の双方で `GameSystem` が解決できること（旧 `Program.cs` 手動合成の挙動維持を担保）
+  - ホスト合成を再現（スタブ `IGameInput` + `IRenderer`(NullRenderer) + 固定名 `IPlayer`）し、リポジトリ有無の双方で `GameSystem` が解決できること
+  - `CreatePlayer` は `IGameMessageBus` を解決して `ExperienceManager`/`InventoryManager`/`Player` に注入
+  - 内部スタブ `StubGameInput` は `SelectGameAction()` で `GameActionChoice.Continue` を返す
 
 ### Factory/
 
 - **EnemyFactoryTests.cs** -- 注入された `EnemyFactory` インスタンスのメソッドを検証
-  - `EnemyConfig` とシード固定の `Random` を注入してインスタンス化（静的依存を排除した seam）
+  - `EnemyConfig` + `IGameMessageBus` + シード固定の `Random` を注入してインスタンス化（静的依存を排除した seam）
   - `GetAvailableEnemyKeys()` が既知の敵キー（例: "Goblin"）を含むこと
   - `Create("Goblin")` が名前・MaxHP・AttackStrategy の正しい Enemy を返すこと
   - 実際の `enemy-specs.yml` を読み込むため、YAML の変更がテストに影響する
@@ -44,6 +50,7 @@ dotnet test --filter "FullyQualifiedName~GameEngine.Tests.Models"
   - `IEquipmentStatsProvider` のテスト実装（`TestEquipmentProvider`）を内部クラスとして定義
   - 装備変更時に `MaxHP`・`TotalDP` が再計算され、`CurrentHP` が新 MaxHP にクリップされること
 - **InventoryManagerTests.cs** -- `InventoryManager` と `HealthManager` の連携を検証
+  - `InventoryManager(initialGold, initialPotions, potionPrice, IGameMessageBus)` でインスタンス化
   - `EquipWeapon()` で武器を装備すると `HealthManager` の `MaxHP`・`TotalDP` が更新されること
   - `InventoryManager` 自体が `IEquipmentStatsProvider` として機能することの実証
 

@@ -7,7 +7,7 @@
 - **Trigger** - ステートが返すトリガー enum（`Continue` / `EndGame` / `Done`）
 - **IGameState** - 状態インターフェース。`Execute()` で処理を行い `Trigger` を返す
 - **GameStateMachine** - 遷移マップ `Dictionary<(Type, Trigger), Func<IGameState>?>` を受け取り、トリガーから次ステートを解決するループ
-- **GameFlowContext** - 全状態が共有する実行コンテキスト（Player・EventManager・Input・SaveDataManager・ヘルパー群）
+- **GameFlowContext** - 全状態が共有する実行コンテキスト（Player・EventManager・Input・IPlayerRepository?・IRenderer・ヘルパー群）。描画は注入された `IRenderer` 経由で行う（旧 `renderMessages` デリゲートは廃止）
 
 ## 遷移マップ（`GameSystem.RunGameLoop()` で定義）
 
@@ -22,10 +22,17 @@
 
 ## 各ステートの責務
 
-- **StartState** - 開始メッセージとプレイヤー情報を表示
-- **EncounterState** - `EventManager.TriggerRandomEvent()` でイベント（戦闘/ショップ）を実行
-- **PostEncounterState** - プレイヤー情報表示 + 続行確認（続行/セーブ/終了）
-- **GameOverState** - 最終結果を表示
+- **StartState** - `context.ClearScreen(...)` 後に開始メッセージとプレイヤー情報を表示
+- **EncounterState** - `context.ClearScreen(...)` 後に `EventManager.TriggerRandomEvent()` でイベント（戦闘/ショップ）を実行
+- **PostEncounterState** - `context.ClearScreen(...)` 後にプレイヤー情報表示 + `context.ConfirmContinue()` で続行確認（続行/セーブ/終了）
+- **GameOverState** - `context.ClearScreen(...)` 後に最終結果を表示
+- 各 State は画面クリアに `context.ClearScreen(string)` ヘルパーを使う（`ConsoleRenderer` を直接呼ばない）
+
+## GameFlowContext の主なヘルパー
+
+- `ClearScreen(string title)` - 注入された `IRenderer.ClearScreen()` に委譲（各 State が利用）
+- `RenderMessages()` / `WriteLine()` / `LogTransition()` - すべて `IRenderer` 経由で描画
+- `ConfirmContinue()` - `Input.SelectGameAction()` が返す `GameActionChoice`（Continue / SaveAndContinue / SaveAndQuit / Quit）で分岐。セーブ系は `IPlayerRepository.SaveAsync()` を呼ぶ（未注入なら「利用不可」を通知して続行）
 
 ## エントリポイント
 

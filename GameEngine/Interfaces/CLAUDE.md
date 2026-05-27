@@ -50,7 +50,22 @@ ICharacter
 - `SelectAttackAction()` - 戦闘中の行動選択
 - `SelectShopAction()` - ショップでの行動選択
 - `SelectRestAction()` - 休憩時のアイテム使用選択
-- 実装: `Systems/ConsoleGameInput`
+- `SelectGameAction()` - エンカウント後の進行アクション（続行/セーブ/終了）を `GameActionChoice`（`GameEngine.DTOs`）で返す。コア（`GameFlowContext`）から呼ばれる
+- 実装: `GameEngine.Console/UI/ConsoleGameInput`
+
+### IRenderer
+- 出力（描画）の抽象。コアは `System.Console` に直接依存せず本インターフェース経由で表示
+- コンソールホストは ANSI ベース実装、API ホストはバッファ/DTO 蓄積実装を提供
+- メソッド: `ClearScreen()`, `WaitForKeyPress()`, `RenderMessage()`, `RenderMessages()`, `WriteInfo/Success/Warning/Error/System()`, `RenderHPBar()`, `RenderStatusPanel()`, `WriteSeparator()`, `WriteResultBox()`
+- コアが実際に呼ぶメソッドのみ公開。矢印キー選択・装飾ボックス等のコンソール固有描画は実装側に閉じ込める
+- 実装: `GameEngine.Console/UI/ConsoleRenderer`（API はバッファ実装予定）
+
+### IGameMessageBus
+- ドメインメッセージの発行/購読バス（インスタンスベース）
+- 静的イベントだと並行リクエスト時に購読が混線するため、DI スコープ単位のインスタンスで扱う
+- `event Action<GameMessage>? MessagePublished` / `Publish(string, MessageType)` / `Publish(GameMessage)`
+- 発行側（`Player`・各 Manager・`Enemy`）に注入され、購読側（出力シンク）は `GameSystem` が接続
+- 実装: `Models/GameMessageBus`（`AddGameEngine` が Singleton 登録）
 
 ### IEnemyFactory
 - 敵生成を抽象化し、テスト時にインメモリ実装/モックへ差し替えるための継ぎ目（seam）
@@ -61,6 +76,6 @@ ICharacter
 
 ## 変更時の注意点
 
-- `IAttackStrategy` の新規実装を追加する場合は、`Models/AttackStrategy.cs` のマッピングと `Systems/UserInteraction.cs` の UI 選択肢も更新すること
-- `IGameInput` のメソッドシグネチャを変更する場合は、`ConsoleGameInput` とテスト用モックの両方を更新すること
+- `IAttackStrategy` の新規実装を追加する場合は、`Models/AttackStrategy.cs` のマッピングと `GameEngine.Console/UI/UserInteraction.cs` の UI 選択肢も更新すること
+- `IGameInput` のメソッドシグネチャを変更する場合は、`GameEngine.Console/UI/ConsoleGameInput` とテスト用モックの両方を更新すること
 - `IEquipmentStatsProvider.EquipmentChanged` イベントは `HealthManager` がリッスンしているため、発火タイミングに注意

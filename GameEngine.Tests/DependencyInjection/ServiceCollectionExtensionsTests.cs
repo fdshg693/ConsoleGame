@@ -6,6 +6,7 @@ using GameEngine.Interfaces;
 using GameEngine.Manager;
 using GameEngine.Models;
 using GameEngine.Systems;
+using GameEngine.Tests.TestDoubles;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -76,8 +77,13 @@ namespace GameEngine.Tests.DependencyInjection
             var services = new ServiceCollection();
             services.AddGameEngine();
             services.AddSingleton<IGameInput>(new StubGameInput());
+            // 出力シンクはホスト責務。テストでは描画しない NullRenderer を登録する。
+            services.AddSingleton<IRenderer>(new NullRenderer());
             services.AddSingleton<IPlayer>(sp =>
-                CreatePlayer("Tester", sp.GetRequiredService<GameConfig>()));
+                CreatePlayer(
+                    "Tester",
+                    sp.GetRequiredService<GameConfig>(),
+                    sp.GetRequiredService<IGameMessageBus>()));
             if (repository != null)
             {
                 services.AddSingleton(repository);
@@ -85,20 +91,22 @@ namespace GameEngine.Tests.DependencyInjection
             return services.BuildServiceProvider();
         }
 
-        private static IPlayer CreatePlayer(string name, GameConfig config)
+        private static IPlayer CreatePlayer(string name, GameConfig config, IGameMessageBus bus)
         {
-            var experienceManager = new ExperienceManager(config.LevelUp.ExperienceRequired);
+            var experienceManager = new ExperienceManager(config.LevelUp.ExperienceRequired, bus);
             var inventoryManager = new InventoryManager(
                 config.Player.InitialGold,
                 config.Player.InitialPotions,
-                config.Items.Potion.Price);
+                config.Items.Potion.Price,
+                bus);
 
             return new Player(
                 name,
                 config,
                 AttackStrategy.GetAttackStrategy(AttackStrategyNames.Default),
                 experienceManager,
-                inventoryManager);
+                inventoryManager,
+                bus);
         }
 
         /// <summary>合成の解決のみを検証するための入力スタブ（戦闘/ショップは走らせない）。</summary>
@@ -111,6 +119,8 @@ namespace GameEngine.Tests.DependencyInjection
                 => new ShopAction(ShopActionType.Exit);
 
             public UseItemAction? SelectRestAction(PlayerState playerState) => null;
+
+            public GameActionChoice SelectGameAction() => GameActionChoice.Continue;
         }
     }
 }

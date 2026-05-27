@@ -17,11 +17,11 @@
 - ゴールド、ポーション数、装備武器を管理
 - `EquipWeapon()` で武器変更時に `EquipmentChanged` イベントを発火 → `HealthManager` に通知
 - `BuyPotion()` / `UsePotion()` でポーション売買・使用（ゴールド不足/ポーション不足時は警告メッセージ）
-- コンストラクタ `InventoryManager(int initialGold, int initialPotions, int potionPrice)`: 初期ゴールド・初期ポーション数・ポーション単価を引数で注入（負数は `ArgumentOutOfRangeException`）
+- コンストラクタ `InventoryManager(int initialGold, int initialPotions, int potionPrice, IGameMessageBus bus)`: 初期ゴールド・初期ポーション数・ポーション単価・メッセージバスを引数で注入（負数は `ArgumentOutOfRangeException`）
 
 ### ExperienceManager
 - 経験値とレベルを管理
-- コンストラクタ `ExperienceManager(int experienceRequiredForLevelUp)`: レベルアップ閾値を引数で注入（0以下は `ArgumentOutOfRangeException`）
+- コンストラクタ `ExperienceManager(int experienceRequiredForLevelUp, IGameMessageBus bus)`: レベルアップ閾値・メッセージバスを引数で注入（閾値0以下は `ArgumentOutOfRangeException`）
 - `GainExperience()`: 経験値を加算し、注入された閾値 `experienceRequiredForLevelUp` に到達したらレベルアップ（戻り値 1）
 - 現状レベルアップは1回分のみ処理（超過分の連続レベルアップは未対応）
 
@@ -32,7 +32,7 @@
 
 ### RewardManager（CombatManager.cs 内に同居）
 - 敵撃破時の報酬処理を一元管理
-- コンストラクタ `RewardManager(InventoryManager, ExperienceManager, HealthManager, Action<int> increaseBaseAP, int levelUpHPIncrease, int levelUpDPIncrease, int levelUpAPIncrease)`: レベルアップ時の HP/DP/AP 増加量を引数で注入
+- コンストラクタ `RewardManager(InventoryManager, ExperienceManager, HealthManager, Action<int> increaseBaseAP, int levelUpHPIncrease, int levelUpDPIncrease, int levelUpAPIncrease, IGameMessageBus bus)`: レベルアップ時の HP/DP/AP 増加量とメッセージバスを引数で注入
 - `ProcessEnemyDefeat()`: ゴールド獲得 → 経験値獲得 → レベルアップ判定を順次実行
 - レベルアップ時は注入された増加量で HP/DP/AP を強化
 

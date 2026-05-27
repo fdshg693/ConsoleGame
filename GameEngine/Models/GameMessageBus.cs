@@ -1,3 +1,5 @@
+using GameEngine.Interfaces;
+
 namespace GameEngine.Models
 {
     /// <summary>
@@ -27,13 +29,15 @@ namespace GameEngine.Models
     }
 
     /// <summary>
-    /// ドメインメッセージの発行バス
+    /// ドメインメッセージの発行バス（インスタンスベース）。
+    /// 旧静的実装は並行リクエストで購読が混線するため、DI スコープ単位のインスタンスとして扱う。
+    /// 発行側に注入し、<c>GameSystem</c> が購読して出力シンク（<see cref="IRenderer"/>）へ流す。
     /// </summary>
-    public static class GameMessageBus
+    public class GameMessageBus : IGameMessageBus
     {
-        public static event Action<GameMessage>? MessagePublished;
+        public event Action<GameMessage>? MessagePublished;
 
-        public static void Publish(string text, MessageType type)
+        public void Publish(string text, MessageType type)
         {
             var message = new GameMessage
             {
@@ -44,7 +48,7 @@ namespace GameEngine.Models
             MessagePublished?.Invoke(message);
         }
 
-        public static void Publish(GameMessage message)
+        public void Publish(GameMessage message)
         {
             MessagePublished?.Invoke(message);
         }

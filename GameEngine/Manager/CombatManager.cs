@@ -68,6 +68,7 @@ namespace GameEngine.Manager
         private readonly int _levelUpHPIncrease;
         private readonly int _levelUpDPIncrease;
         private readonly int _levelUpAPIncrease;
+        private readonly IGameMessageBus _bus;
 
         public RewardManager(
             InventoryManager inventory,
@@ -76,7 +77,8 @@ namespace GameEngine.Manager
             Action<int> increaseBaseAP,
             int levelUpHPIncrease,
             int levelUpDPIncrease,
-            int levelUpAPIncrease)
+            int levelUpAPIncrease,
+            IGameMessageBus bus)
         {
             _inventory = inventory ?? throw new ArgumentNullException(nameof(inventory));
             _experience = experience ?? throw new ArgumentNullException(nameof(experience));
@@ -85,6 +87,7 @@ namespace GameEngine.Manager
             _levelUpHPIncrease = levelUpHPIncrease;
             _levelUpDPIncrease = levelUpDPIncrease;
             _levelUpAPIncrease = levelUpAPIncrease;
+            _bus = bus ?? throw new ArgumentNullException(nameof(bus));
         }
 
         /// <summary>
@@ -95,7 +98,7 @@ namespace GameEngine.Manager
             if (enemy == null)
                 throw new ArgumentNullException(nameof(enemy));
 
-            GameMessageBus.Publish($"You defeated {enemy.Name}!", MessageType.Combat);
+            _bus.Publish($"You defeated {enemy.Name}!", MessageType.Combat);
 
             // ゴールド獲得
             _inventory.GainGold(enemy.YieldGold);
@@ -123,7 +126,7 @@ namespace GameEngine.Manager
                 _increaseBaseAP(_levelUpAPIncrease);
             }
 
-            GameMessageBus.Publish($"Leveled up {levels} time(s)!", MessageType.Experience);
+            _bus.Publish($"Leveled up {levels} time(s)!", MessageType.Experience);
         }
     }
 }

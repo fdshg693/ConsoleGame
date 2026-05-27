@@ -1,13 +1,15 @@
 using GameEngine.DTOs;
+using GameEngine.Interfaces;
 using GameEngine.Models;
 
-namespace GameEngine.Systems
+namespace CliRpgGame.UI
 {
     /// <summary>
-    /// Console output centralization - all display logic goes through here.
-    /// Provides screen clearing, color-coded messages, HP bars, menus, and layout utilities.
+    /// コンソール向けの <see cref="IRenderer"/> 実装。
+    /// 画面クリア・色付きメッセージ・HPバー・メニュー・レイアウトを ANSI エスケープで描画する。
+    /// 矢印キー選択（<see cref="SelectFromMenu"/>）など、コンソール固有の入出力はこのクラスに閉じ込める。
     /// </summary>
-    public static class ConsoleRenderer
+    public class ConsoleRenderer : IRenderer
     {
         // ANSI color codes
         private const string Reset = "\x1b[0m";
@@ -43,7 +45,7 @@ namespace GameEngine.Systems
         /// <summary>
         /// Clears the screen and renders a header bar.
         /// </summary>
-        public static void ClearScreen(string title)
+        public void ClearScreen(string title)
         {
             Console.Clear();
             var line = new string('=', ScreenWidth);
@@ -56,7 +58,7 @@ namespace GameEngine.Systems
         /// <summary>
         /// Waits for the user to press any key before continuing.
         /// </summary>
-        public static void WaitForKeyPress(string prompt = "Press any key to continue...")
+        public void WaitForKeyPress(string prompt = "Press any key to continue...")
         {
             Console.WriteLine();
             Console.Write($"{Gray}{prompt}{Reset}");
@@ -71,7 +73,7 @@ namespace GameEngine.Systems
         /// <summary>
         /// Renders a single GameMessage with color coding based on MessageType.
         /// </summary>
-        public static void RenderMessage(GameMessage message)
+        public void RenderMessage(GameMessage message)
         {
             string color = message.Type switch
             {
@@ -94,7 +96,7 @@ namespace GameEngine.Systems
         /// <summary>
         /// Renders multiple GameMessages.
         /// </summary>
-        public static void RenderMessages(IEnumerable<GameMessage> messages)
+        public void RenderMessages(IEnumerable<GameMessage> messages)
         {
             foreach (var message in messages)
             {
@@ -106,32 +108,32 @@ namespace GameEngine.Systems
         // Typed Output Helpers
         // ─────────────────────────────────────────────
 
-        public static void WriteInfo(string text)
+        public void WriteInfo(string text)
         {
             Console.WriteLine(text);
         }
 
-        public static void WriteSuccess(string text)
+        public void WriteSuccess(string text)
         {
             Console.WriteLine($"{BoldGreen}{text}{Reset}");
         }
 
-        public static void WriteWarning(string text)
+        public void WriteWarning(string text)
         {
             Console.WriteLine($"{BoldYellow}{text}{Reset}");
         }
 
-        public static void WriteError(string text)
+        public void WriteError(string text)
         {
             Console.WriteLine($"{BoldRed}{text}{Reset}");
         }
 
-        public static void WriteSystem(string text)
+        public void WriteSystem(string text)
         {
             Console.WriteLine($"{Gray}{text}{Reset}");
         }
 
-        public static void WriteCombat(string text)
+        public void WriteCombat(string text)
         {
             Console.WriteLine($"{Yellow}{text}{Reset}");
         }
@@ -143,7 +145,7 @@ namespace GameEngine.Systems
         /// <summary>
         /// Renders a visual HP bar: "Name   [########........] 80/100 HP"
         /// </summary>
-        public static void RenderHPBar(string name, int current, int max, int barWidth = 20)
+        public void RenderHPBar(string name, int current, int max, int barWidth = 20)
         {
             int filled = max > 0 ? (int)Math.Round((double)current / max * barWidth) : 0;
             filled = Math.Clamp(filled, 0, barWidth);
@@ -171,7 +173,7 @@ namespace GameEngine.Systems
         /// <summary>
         /// Renders a compact status panel for player (and optionally enemy).
         /// </summary>
-        public static void RenderStatusPanel(PlayerState player, EnemyState? enemy = null)
+        public void RenderStatusPanel(PlayerState player, EnemyState? enemy = null)
         {
             RenderHPBar(player.Name, player.HP, player.MaxHP);
             if (enemy != null)
@@ -186,7 +188,7 @@ namespace GameEngine.Systems
         // Section Separators
         // ─────────────────────────────────────────────
 
-        public static void WriteSection(string title)
+        public void WriteSection(string title)
         {
             int padding = Math.Max(0, (ScreenWidth - title.Length - 4) / 2);
             string left = new string('=', padding);
@@ -194,12 +196,12 @@ namespace GameEngine.Systems
             Console.WriteLine($"\n{Bold}{left}  {title}  {right}{Reset}");
         }
 
-        public static void WriteSeparator()
+        public void WriteSeparator()
         {
             Console.WriteLine($"{Gray}{new string('-', ScreenWidth)}{Reset}");
         }
 
-        public static void WriteBox(string[] lines)
+        public void WriteBox(string[] lines)
         {
             int maxLen = lines.Max(l => l.Length);
             int boxWidth = Math.Max(maxLen + 4, 30);
@@ -215,7 +217,7 @@ namespace GameEngine.Systems
         /// <summary>
         /// Renders a highlighted result box (victory, defeat, etc.)
         /// </summary>
-        public static void WriteResultBox(string title, string[] details, bool isVictory)
+        public void WriteResultBox(string title, string[] details, bool isVictory)
         {
             string color = isVictory ? BoldGreen : BoldRed;
             int maxLen = Math.Max(title.Length, details.Length > 0 ? details.Max(d => d.Length) : 0);
@@ -240,7 +242,7 @@ namespace GameEngine.Systems
         /// <summary>
         /// Unified arrow-key menu selector. Returns the selected index (0-based), or -1 if cancelled.
         /// </summary>
-        public static int SelectFromMenu(
+        public int SelectFromMenu(
             string[] options,
             int initialIndex = 0,
             MenuOrientation orientation = MenuOrientation.Vertical,
@@ -257,7 +259,7 @@ namespace GameEngine.Systems
                 return SelectHorizontal(options, currentIndex, allowCancel);
         }
 
-        private static int SelectVertical(string[] options, int currentIndex, bool allowCancel, string[]? descriptions)
+        private int SelectVertical(string[] options, int currentIndex, bool allowCancel, string[]? descriptions)
         {
             // Anchor the cursor at the menu's start, then redraw in place on every keypress.
             Console.Write(SaveCursor);
@@ -288,7 +290,7 @@ namespace GameEngine.Systems
             }
         }
 
-        private static void RenderVerticalMenu(string[] options, int selectedIndex, string[]? descriptions)
+        private void RenderVerticalMenu(string[] options, int selectedIndex, string[]? descriptions)
         {
             for (int i = 0; i < options.Length; i++)
             {
@@ -301,7 +303,7 @@ namespace GameEngine.Systems
             Console.Write($"  {Gray}(Up/Down to select, Enter to confirm){Reset}");
         }
 
-        private static int SelectHorizontal(string[] options, int currentIndex, bool allowCancel)
+        private int SelectHorizontal(string[] options, int currentIndex, bool allowCancel)
         {
             Console.Write(SaveCursor);
             RenderHorizontalMenu(options, currentIndex);
@@ -333,7 +335,7 @@ namespace GameEngine.Systems
             }
         }
 
-        private static void RenderHorizontalMenu(string[] options, int selectedIndex)
+        private void RenderHorizontalMenu(string[] options, int selectedIndex)
         {
             Console.Write("  ");
             for (int i = 0; i < options.Length; i++)
@@ -355,7 +357,7 @@ namespace GameEngine.Systems
         /// the end of the screen, then redraws. Because it never counts lines, it is robust
         /// against line-wrapping and a changing number of option/description/hint lines.
         /// </summary>
-        private static void RedrawAtAnchor(Action render)
+        private void RedrawAtAnchor(Action render)
         {
             Console.Write(RestoreCursor);     // back to the menu's start position
             Console.Write(ClearToScreenEnd);  // erase the old menu (and anything below it)

@@ -24,13 +24,16 @@ namespace GameEngine.Factory
         private readonly Dictionary<string, EnemySpec> _specs;
         private readonly EnemyConfig _enemyConfig;
         private readonly Random _random;
+        private readonly IGameMessageBus _bus;
         private const string DefaultYamlPath = "./enemy-specs.yml";
 
         /// <param name="enemyConfig">敵撃破時のゴールド計算に使う設定。</param>
+        /// <param name="bus">生成する <see cref="Enemy"/> に注入するドメインメッセージバス。</param>
         /// <param name="random">ランダム選択・ゴールド計算に使う乱数源。省略時は <see cref="Random.Shared"/>。</param>
-        public EnemyFactory(EnemyConfig enemyConfig, Random? random = null)
+        public EnemyFactory(EnemyConfig enemyConfig, IGameMessageBus bus, Random? random = null)
         {
             _enemyConfig = enemyConfig ?? throw new ArgumentNullException(nameof(enemyConfig));
+            _bus = bus ?? throw new ArgumentNullException(nameof(bus));
             _random = random ?? Random.Shared;
             _specs = LoadEnemySpecs(ResolveSpecPath(DefaultYamlPath));
         }
@@ -147,7 +150,8 @@ namespace GameEngine.Factory
                 experience: spec.Experience,
                 aP: spec.AP,
                 dP: spec.DP,
-                yieldGold: yieldGold
+                yieldGold: yieldGold,
+                bus: _bus
             );
         }
 

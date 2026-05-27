@@ -27,6 +27,9 @@ namespace GameEngine.Models
         // ポーション1個あたりの回復量（設定から注入）
         private readonly int _potionHealAmount;
 
+        // ドメインメッセージの発行先（DI 注入）
+        private readonly IGameMessageBus _bus;
+
         // 攻撃戦略名を取得するためのプロパティ
         private string CurrentAttackStrategyName => _combat.GetCurrentStrategyName();
 
@@ -45,7 +48,8 @@ namespace GameEngine.Models
             GameConfig config,
             IAttackStrategy attackStrategy,
             ExperienceManager experienceManager,
-            InventoryManager inventoryManager)
+            InventoryManager inventoryManager,
+            IGameMessageBus bus)
         {
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("Player name cannot be null or empty", nameof(name));
@@ -55,6 +59,7 @@ namespace GameEngine.Models
             Name = name;
             BaseAP = config.Player.BaseAP;
             _potionHealAmount = config.Items.Potion.HealAmount;
+            _bus = bus ?? throw new ArgumentNullException(nameof(bus));
             _experience = experienceManager ?? throw new ArgumentNullException(nameof(experienceManager));
             _inventory = inventoryManager ?? throw new ArgumentNullException(nameof(inventoryManager));
             _health = new HealthManager(
@@ -76,7 +81,8 @@ namespace GameEngine.Models
                 amount => BaseAP += amount,
                 levelUpHPIncrease: config.LevelUp.HPIncrease,
                 levelUpDPIncrease: config.LevelUp.DPIncrease,
-                levelUpAPIncrease: config.LevelUp.APIncrease);
+                levelUpAPIncrease: config.LevelUp.APIncrease,
+                bus: _bus);
         }
 
         #region Equipment Management
@@ -107,7 +113,7 @@ namespace GameEngine.Models
                 throw new ArgumentException("Damage amount cannot be negative", nameof(amount));
 
             int actualDamage = _health.TakeDamage(amount);
-            GameMessageBus.Publish($"{Name} takes {actualDamage} damage! Remaining HP: {HP}", MessageType.Combat);
+            _bus.Publish($"{Name} takes {actualDamage} damage! Remaining HP: {HP}", MessageType.Combat);
         }
 
         public void ChangeAttackStrategy(string strategyName)
@@ -125,7 +131,7 @@ namespace GameEngine.Models
                 throw new ArgumentException("Heal amount must be positive", nameof(amount));
 
             _health.Heal(amount);
-            GameMessageBus.Publish($"{Name} heals {amount} HP", MessageType.Success);
+            _bus.Publish($"{Name} heals {amount} HP", MessageType.Success);
         }
 
         public void UsePotion(int amount)
@@ -178,11 +184,11 @@ namespace GameEngine.Models
 
         public void ShowInfo()
         {
-            GameMessageBus.Publish("-------------------------------------------------------------------", MessageType.System);
-            GameMessageBus.Publish($"Name: {Name}  HP: {HP}/{MaxHP}  AP: {AP}  DP: {DP}", MessageType.Info);
+            _bus.Publish("-------------------------------------------------------------------", MessageType.System);
+            _bus.Publish($"Name: {Name}  HP: {HP}/{MaxHP}  AP: {AP}  DP: {DP}", MessageType.Info);
             _inventory.ShowInfo();
             _experience.ShowInfo();
-            GameMessageBus.Publish("-------------------------------------------------------------------", MessageType.System);
+            _bus.Publish("-------------------------------------------------------------------", MessageType.System);
         }
 
         #endregion

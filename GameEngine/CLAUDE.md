@@ -8,7 +8,7 @@ C#コンソールRPGエンジンの**コアライブラリ**（.NET 8.0, Library
 GameEngine.Console/Program.cs (合成起点 / Composition Root)
   -> GameConfig を一度だけ取得（GameConfigLoader.Instance）
   -> ServiceCollection.AddGameEngine() でコア依存を登録
-  -> IGameInput / IPlayer / IPlayerRepository をホスト登録
+  -> IGameInput / IRenderer / IPlayer / IPlayerRepository をホスト登録
   -> ServiceProvider から GameSystem を解決して RunGameLoop()
        -> ShopSystem (買い物イベント)
        -> BattleSystem (戦闘イベント)
@@ -16,15 +16,17 @@ GameEngine.Console/Program.cs (合成起点 / Composition Root)
 
 - Factory / Strategy / Manager パターンを組み合わせたターン制戦闘エンジン
 - ゲームバランスは全て YAML 設定ファイルで外部化
+- コアは `System.Console` に直接依存しない。表示は `IRenderer`、入力は `IGameInput` 経由。コンソール固有 UI（`ConsoleRenderer` / `ConsoleGameInput` / `UserInteraction`）は `GameEngine.Console/UI/` に存在する
 
 ## DependencyInjection/ServiceCollectionExtensions.cs（DI 合成）
 
 - `AddGameEngine(this IServiceCollection)` がコア依存の登録を集約する。コンソール/API 両ホストから呼ぶ
 - 登録するもの（UI 非依存・実行時入力不要のコア）:
   - `GameConfig` — Singleton（`GameConfigLoader.Instance` を1度だけ解決。直アクセスはこの合成に限定）
-  - `IEnemyFactory` → `EnemyFactory`（Singleton, `GameConfig.Enemy` 由来）
-  - `EventManager` / `GameSystem` — Singleton（進行制御。`IPlayer`/`IGameInput` はホスト登録後に解決される）
-- 登録しない（ホスト責務）もの: `IGameInput`（UI 実装）/ `IPlayer`（実行時プレイヤー名）/ `IPlayerRepository`（任意。未登録なら `GameSystem` は `IPlayerRepository?` 既定値 null でセーブ無効）
+  - `IGameMessageBus` → `GameMessageBus`（Singleton。発行側（Player/Manager/Enemy）と購読側（`GameSystem` → `IRenderer`）が同一インスタンスを共有）
+  - `IEnemyFactory` → `EnemyFactory`（Singleton, `GameConfig.Enemy` 由来。生成時に `IGameMessageBus` を渡す）
+  - `EventManager` / `GameSystem` — Singleton（進行制御。`IPlayer`/`IGameInput`/`IRenderer` はホスト登録後に解決される）
+- 登録しない（ホスト責務）もの: `IGameInput`（UI 入力実装）/ `IRenderer`（描画実装。コンソールは ANSI、API はバッファ/DTO 蓄積）/ `IPlayer`（実行時プレイヤー名）/ `IPlayerRepository`（任意。未登録なら `GameSystem` は `IPlayerRepository?` 既定値 null でセーブ無効）
 - 依存パッケージ: `Microsoft.Extensions.DependencyInjection.Abstractions`
 
 ## YAML 設定ファイル
@@ -72,10 +74,10 @@ GameEngine.Console/Program.cs (合成起点 / Composition Root)
 
 - `DependencyInjection/` — `AddGameEngine` 拡張（上記「DI 合成」参照）
 - [Factory/CLAUDE.md](./Factory/CLAUDE.md) — EnemyFactory, WeaponFactory, YamlSpecLoader
-- [Interfaces/CLAUDE.md](./Interfaces/CLAUDE.md) — IAttackStrategy, ICharacter, IEnemy 等
+- [Interfaces/CLAUDE.md](./Interfaces/CLAUDE.md) — IAttackStrategy, ICharacter, IEnemy, IGameInput, IRenderer, IGameMessageBus 等（描画/入力/メッセージバスの抽象。実装はホスト側）
 - [Manager/CLAUDE.md](./Manager/CLAUDE.md) — HealthManager, InventoryManager, ExperienceManager, CombatManager, SaveDataManager
-- [Models/CLAUDE.md](./Models/CLAUDE.md) — Player, Enemy, Weapon, AttackStrategy, GameState 等
-- [Systems/CLAUDE.md](./Systems/CLAUDE.md) — GameSystem, BattleSystem, ShopSystem
+- [Models/CLAUDE.md](./Models/CLAUDE.md) — Player, Enemy, Weapon, AttackStrategy, GameState, GameMessageBus 等
+- [Systems/CLAUDE.md](./Systems/CLAUDE.md) — GameSystem, BattleSystem, ShopSystem（コンソール UI は含まない）
 - [Systems/StateMachine/CLAUDE.md](./Systems/StateMachine/CLAUDE.md) — ステートマシン
 
 ## ビルド・実行

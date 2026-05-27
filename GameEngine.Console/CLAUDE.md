@@ -6,7 +6,13 @@
 
 - ゲームの**合成起点（Composition Root）**。`GameConfigLoader.Instance` への直アクセスはこのプロジェクトに限定する
 - コンソール固有のホスト処理（起動バナー、プレイヤー名入力、例外時の終了）
-- コアの UI 抽象（`IGameInput`）にコンソール実装を DI 登録する
+- コア抽象（`IGameInput` / `IRenderer`）にコンソール実装（`UI/` 配下）を DI 登録する
+
+## UI/（コンソール固有 UI, namespace `CliRpgGame.UI`）
+
+- `ConsoleRenderer : IRenderer` — ANSI 描画の実装（**インスタンスクラス**）。`ClearScreen` / `RenderMessage(s)` / `RenderHPBar` / `RenderStatusPanel` / `WriteResultBox` などコア抽象に加え、コンソール専用の `SelectFromMenu`（矢印キー選択）/ `MenuOrientation`（enum）/ `WriteSection` / `WriteBox` / `WriteCombat` も保持
+- `UserInteraction`（static）— `ReadPositiveInteger` / `ReadConfirmation` / `ReadChoice` / `ClearLastOutput` は `Console` 直叩き。`SelectAttackStrategy(ConsoleRenderer, IReadOnlyList<string>? = null)` は `ConsoleRenderer` インスタンスを受け取り描画を委譲する
+- `ConsoleGameInput : IGameInput` — コンストラクタ `ConsoleGameInput(ConsoleRenderer renderer, int potionPrice, int potionHealAmount)`。攻撃/ショップ/休息に加え `SelectGameAction()` を実装（矢印キーで続行/セーブ/終了を選び `GameActionChoice` を返す）
 
 ## Program.cs
 
@@ -15,9 +21,10 @@
 1. バナー表示 → `GameConfigLoader.Instance` で `GameConfig` を一度だけ取得（起動時バリデーション）
 2. プレイヤー名をコンソール入力（空なら "Hero"）
 3. DI 合成:
-   - `services.AddGameEngine()` — コア依存（`GameConfig`/`IEnemyFactory`/`EventManager`/`GameSystem`）を登録
-   - `IGameInput` → `ConsoleGameInput(potionPrice, potionHealAmount)` を登録（値は `GameConfig` から解決）
-   - `IPlayer` → `CreatePlayer(playerName, config)` を登録（`ExperienceManager`/`InventoryManager`/`Player` を組み立て）
+   - `services.AddGameEngine()` — コア依存（`GameConfig`/`IGameMessageBus`/`IEnemyFactory`/`EventManager`/`GameSystem`）を登録
+   - `ConsoleRenderer` を Singleton 登録し、`IRenderer` → 同一インスタンスへ橋渡し（`GameSystem`/`EventManager` と `ConsoleGameInput` が単一の `ConsoleRenderer` を共有）
+   - `IGameInput` → `new ConsoleGameInput(ConsoleRenderer, potionPrice, potionHealAmount)`（価格・回復量は `GameConfig` から解決）
+   - `IPlayer` → `CreatePlayer(playerName, config, IGameMessageBus)` を登録（`bus` を `ExperienceManager`/`InventoryManager`/`Player` に注入して組み立て）
    - `IPlayerRepository` → `CreatePlayerRepository(config)`。MongoDB 不可なら**登録せず**、`GameSystem` は `IPlayerRepository?` 既定値 null（セーブ無効）で続行
 4. `ServiceProvider` から `GameSystem`（IDisposable）を解決し `RunGameLoop()` を実行
    - `using` でスコープ終了時に `GameMessageBus` 購読を解除（provider 破棄でも解除されるため二重 Dispose は冪等）
@@ -35,7 +42,7 @@
 ## 注意
 
 - アセンブリ名は `GameEngine.Console` だが、`System.Console` との曖昧化を避けるためルート名前空間は `CliRpgGame`（`RootNamespace`）に固定
-- コンソール固有 UI（`ConsoleGameInput` / `ConsoleRenderer` / `UserInteraction`）は現状コア（`GameEngine/Systems`）に同居。将来フェーズで本プロジェクトへ隔離予定
+- コンソール固有 UI（`ConsoleGameInput` / `ConsoleRenderer` / `UserInteraction`）は本プロジェクトの `UI/`（namespace `CliRpgGame.UI`）に隔離済み。コアは `IRenderer` / `IGameInput` 抽象のみに依存する
 
 ## 実行
 

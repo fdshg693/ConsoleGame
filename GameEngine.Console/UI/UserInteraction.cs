@@ -1,7 +1,12 @@
-﻿using GameEngine.Constants;
+using GameEngine.Constants;
 
-namespace GameEngine.Systems
+namespace CliRpgGame.UI
 {
+    /// <summary>
+    /// コンソール入力の共通ユーティリティ。
+    /// 整数入力・確認・選択はコンソール固有のため、コアではなくコンソールホストに置く。
+    /// 描画を伴う選択（<see cref="SelectAttackStrategy"/>）は <see cref="ConsoleRenderer"/> を受け取って委譲する。
+    /// </summary>
     public static class UserInteraction
     {
         private const int MaxInputAttempts = 5;
@@ -11,7 +16,7 @@ namespace GameEngine.Systems
         /// Clears the last line of output from the console.
         /// </summary>
         /// <remarks>This method moves the cursor up by one line and clears the entire line, effectively
-        /// removing         the most recent output from the console. It is useful for scenarios where the last output  
+        /// removing         the most recent output from the console. It is useful for scenarios where the last output
         /// needs to be erased or replaced.</remarks>
         public static void ClearLastOutput()
         {
@@ -49,11 +54,11 @@ namespace GameEngine.Systems
                 attempts++;
                 Console.WriteLine($"Enter '{interruptKeyWord}' to skip");
                 Console.Write(prompt);
-                
+
                 string? line = Console.ReadLine();
 
                 // 中断キーワードチェック
-                if (!string.IsNullOrWhiteSpace(line) && 
+                if (!string.IsNullOrWhiteSpace(line) &&
                     line.Trim().Equals(interruptKeyWord, StringComparison.OrdinalIgnoreCase))
                 {
                     return null;
@@ -109,10 +114,10 @@ namespace GameEngine.Systems
                 return defaultValue;
 
             string normalized = input.Trim().ToLowerInvariant();
-            
+
             if (normalized == "y" || normalized == "yes" || normalized == "はい")
                 return true;
-            
+
             if (normalized == "n" || normalized == "no" || normalized == "いいえ")
                 return false;
 
@@ -144,7 +149,7 @@ namespace GameEngine.Systems
             int? choice = ReadPositiveInteger(
                 "Select: ",
                 "Q",
-                minValue: minValue, 
+                minValue: minValue,
                 maxValue: options.Length);
 
             if (!choice.HasValue || (allowCancel && choice.Value == 0))
@@ -152,31 +157,19 @@ namespace GameEngine.Systems
 
             return choice.Value - 1;
         }
-        public static string SelectAttackStrategy(IReadOnlyList<string>? attackStrategies = null)
+
+        /// <summary>
+        /// 矢印キーで攻撃戦略を選択させる（描画は <paramref name="renderer"/> に委譲）。
+        /// </summary>
+        public static string SelectAttackStrategy(ConsoleRenderer renderer, IReadOnlyList<string>? attackStrategies = null)
         {
             var strategyList = attackStrategies ?? new List<string>(AttackStrategyNames.All);
             var options = strategyList.ToArray();
 
-            ConsoleRenderer.WriteInfo("Select attack strategy:");
-            int selected = ConsoleRenderer.SelectFromMenu(options, 0, ConsoleRenderer.MenuOrientation.Horizontal);
+            renderer.WriteInfo("Select attack strategy:");
+            int selected = renderer.SelectFromMenu(options, 0, ConsoleRenderer.MenuOrientation.Horizontal);
 
             return selected >= 0 ? strategyList[selected] : strategyList[0];
         }
-
-        /// <summary>
-        /// Select a game action (continue, save, quit).
-        /// </summary>
-        /// <returns>Selected action: "continue", "save_continue", "save_quit", "quit"</returns>
-        public static string SelectGameAction()
-        {
-            var actionArray = new string[] { "Continue", "Save & Continue", "Save & Quit", "Quit" };
-
-            ConsoleRenderer.WriteSection("What would you like to do?");
-            int selected = ConsoleRenderer.SelectFromMenu(actionArray, 0, ConsoleRenderer.MenuOrientation.Vertical);
-
-            if (selected < 0) selected = 0;
-            return actionArray[selected].ToLowerInvariant().Replace(" ", "_").Replace("&_", "");
-        }
     }
-
 }

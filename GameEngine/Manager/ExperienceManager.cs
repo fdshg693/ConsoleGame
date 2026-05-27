@@ -1,15 +1,17 @@
-﻿using GameEngine.Models;
+﻿using GameEngine.Interfaces;
+using GameEngine.Models;
 
 namespace GameEngine.Manager
 {
     public class ExperienceManager
     {
         private readonly int _experienceRequiredForLevelUp;
+        private readonly IGameMessageBus _bus;
 
         public int TotalExperience { get; private set; } = 0;
         public int Level { get; private set; } = 1;
 
-        public ExperienceManager(int experienceRequiredForLevelUp)
+        public ExperienceManager(int experienceRequiredForLevelUp, IGameMessageBus bus)
         {
             if (experienceRequiredForLevelUp <= 0)
                 throw new ArgumentOutOfRangeException(
@@ -17,6 +19,7 @@ namespace GameEngine.Manager
                     "Experience required for level up must be positive");
 
             _experienceRequiredForLevelUp = experienceRequiredForLevelUp;
+            _bus = bus ?? throw new ArgumentNullException(nameof(bus));
         }
 
         /// <summary>
@@ -27,20 +30,20 @@ namespace GameEngine.Manager
         public int GainExperience(int amount)
         {
             TotalExperience += amount;
-            GameMessageBus.Publish($"You gain {amount} experience", MessageType.Experience);
+            _bus.Publish($"You gain {amount} experience", MessageType.Experience);
             if (TotalExperience >= _experienceRequiredForLevelUp)
             {
                 Level++;
                 TotalExperience -= _experienceRequiredForLevelUp;
-                GameMessageBus.Publish($"Level UP to level {Level}!", MessageType.Experience);
+                _bus.Publish($"Level UP to level {Level}!", MessageType.Experience);
                 return 1;
             }
             return 0;
         }
         public void ShowInfo()
         {
-            GameMessageBus.Publish($"Total Experience: {TotalExperience}", MessageType.Info);
-            GameMessageBus.Publish($"Level: {Level}", MessageType.Info);
+            _bus.Publish($"Total Experience: {TotalExperience}", MessageType.Info);
+            _bus.Publish($"Level: {Level}", MessageType.Info);
         }
     }
 }

@@ -3,14 +3,15 @@ This is a C# console RPG engine on .NET 8.0. The runtime is a layered system tha
 ## Solution Structure
 
 - `GameEngine`（Library, net8.0）: ゲームロジック・DTO・Manager・StateMachine・DI 登録（`AddGameEngine`）。Exe ではなくライブラリ出力で、コンソール/API 両ホストから `ProjectReference` 可能。
-- `GameEngine.Console`（Exe, net8.0）: コンソールホスト。合成起点 [./../GameEngine.Console/Program.cs](./../GameEngine.Console/Program.cs) と UI 固有実装（`ConsoleGameInput` 等は現状コア側に同居）。
+- `GameEngine.Console`（Exe, net8.0）: コンソールホスト。合成起点 [./../GameEngine.Console/Program.cs](./../GameEngine.Console/Program.cs) と UI 固有実装（`ConsoleRenderer` / `UserInteraction` / `ConsoleGameInput` を `UI/`、namespace `CliRpgGame.UI` に保持）。
 - `GameEngine.Tests`（Test, net8.0）: xUnit + Moq。TFM はエンジンと統一。
 
 ## Architecture & Data Flow
 
-- **Entry/Composition Root**: [./../GameEngine.Console/Program.cs](./../GameEngine.Console/Program.cs) は唯一の合成起点。`GameConfig` を一度だけ取得し、`IServiceCollection.AddGameEngine()`（[./../GameEngine/DependencyInjection/ServiceCollectionExtensions.cs](./../GameEngine/DependencyInjection/ServiceCollectionExtensions.cs)）でコア依存を登録、`IGameInput`/`IPlayer`/`IPlayerRepository` などホスト固有依存を追加登録して `GameSystem` を解決・実行する（`GameConfigLoader.Instance` への直アクセスは合成起点に限定）。
+- **Entry/Composition Root**: [./../GameEngine.Console/Program.cs](./../GameEngine.Console/Program.cs) は唯一の合成起点。`GameConfig` を一度だけ取得し、`IServiceCollection.AddGameEngine()`（[./../GameEngine/DependencyInjection/ServiceCollectionExtensions.cs](./../GameEngine/DependencyInjection/ServiceCollectionExtensions.cs)）でコア依存を登録、`IGameInput`/`IRenderer`/`IPlayer`/`IPlayerRepository` などホスト固有依存を追加登録して `GameSystem` を解決・実行する（`GameConfigLoader.Instance` への直アクセスは合成起点に限定）。
+- **I/O abstraction**: コアは描画を `IRenderer`（[./../GameEngine/Interfaces](./../GameEngine/Interfaces)）への注入で行い、`Console` 依存を持たない。コンソール UI（`ConsoleRenderer`/`UserInteraction`/`ConsoleGameInput`）は `GameEngine.Console/UI/`（namespace `CliRpgGame.UI`）に隔離。`IRenderer` の登録はホスト責務。
 - **Event routing**: [./../GameEngine/Systems/GameSystem.cs](./../GameEngine/Systems/GameSystem.cs) decides between shop vs battle (1/3 shop, 2/3 battle).
-- **Combat**: [./../GameEngine/Systems/BattleSystem/BattleManager.cs](./../GameEngine/Systems/BattleSystem/BattleManager.cs) coordinates turns; player strategy selection lives in [./../GameEngine/Systems/UserInteraction.cs](./../GameEngine/Systems/UserInteraction.cs).
+- **Combat**: [./../GameEngine/Systems/BattleSystem/BattleManager.cs](./../GameEngine/Systems/BattleSystem/BattleManager.cs) coordinates turns; player strategy selection lives in [./../GameEngine.Console/UI/UserInteraction.cs](./../GameEngine.Console/UI/UserInteraction.cs).
 - **Composition**: `Player` owns `HealthManager`, `InventoryManager`, `ExperienceManager` (see [./../GameEngine/Models/Player.cs](./../GameEngine/Models/Player.cs) and [./../GameEngine/Manager](./../GameEngine/Manager)).
 
 ```
@@ -20,10 +21,11 @@ Program -> ServiceCollection.AddGameEngine()+host registrations -> ServiceProvid
 ## Core Patterns (project-specific)
 
 - **Strategy**: `IAttackStrategy` with `Default`/`Melee`/`Magic`. Strategy names are centralized in `AttackStrategyNames` ([./../GameEngine/Constants/AttackStrategyNames.cs](./../GameEngine/Constants/AttackStrategyNames.cs)). Mapping is in `AttackStrategy.GetAttackStrategy()` and `EnemyFactory.Create()` (keep names aligned with YAML).
-- **Factory**: `EnemyFactory` はインスタンスクラスで `IEnemyFactory` を実装し、`AddGameEngine` が Singleton 登録して EventManager → BattleManager へDI注入する（静的な起動時ローダーではない）。コンストラクタで `EnemyConfig` + `Random` を受け取り、`AppContext.BaseDirectory` フォールバック付きのパスで自身の YAML specs を読み込む。`WeaponFactory` centralizes weapon creation.
+- **Factory**: `EnemyFactory` はインスタンスクラスで `IEnemyFactory` を実装し、`AddGameEngine` が Singleton 登録して EventManager → BattleManager へDI注入する（静的な起動時ローダーではない）。コンストラクタで `EnemyConfig` + `IGameMessageBus` + `Random` を受け取り、`AppContext.BaseDirectory` フォールバック付きのパスで自身の YAML specs を読み込む。`WeaponFactory` centralizes weapon creation.
 - **Managers**: `HealthManager` uses `IEquipmentStatsProvider` from inventory to compute HP/AP/DP; `ExperienceManager` drives level growth. ドメインクラス（`Player`・各 Manager・`Enemy`）は設定を静的な `GameConstants` ラッパー経由ではなく `GameConfig`/サブ設定値のコンストラクタ注入で受け取る（`GameConstants` は固定の `AttackDamage` const のみを保持）。
 - **Repository**: `IPlayerRepository` abstracts persistence. `MongoPlayerRepository`（本番）と `InMemoryPlayerRepository`（テスト用）を切り替え可能。`GameSystem` にコンストラクタ注入される（DI 未登録時は `IPlayerRepository?` の既定値 null = セーブ無効）。
-- **DI**: `AddGameEngine(IServiceCollection)` がコア依存（`GameConfig` Singleton / `IEnemyFactory` / `EventManager` / `GameSystem`）の登録を集約。`IGameInput`・`IPlayer`（実行時名）・`IPlayerRepository`（任意）は各ホストが登録する。`Microsoft.Extensions.DependencyInjection` 系を使用。
+- **Messaging**: `GameMessageBus`（Models）はインスタンス化され `IGameMessageBus` を実装。`AddGameEngine` が `IGameMessageBus`→`GameMessageBus` を Singleton 登録し、発行側（`Player`・各 Manager・`Enemy`）と購読側（`GameSystem` → `IRenderer`）が同一インスタンスを共有する。`InventoryManager`/`ExperienceManager`/`Player`/`EnemyFactory` 等はコンストラクタで `IGameMessageBus` を受け取る。
+- **DI**: `AddGameEngine(IServiceCollection)` がコア依存（`GameConfig` Singleton / `IGameMessageBus` / `IEnemyFactory` / `EventManager` / `GameSystem`）の登録を集約。`IGameInput`・`IRenderer`（描画。ホスト責務）・`IPlayer`（実行時名）・`IPlayerRepository`（任意）は各ホストが登録する。`Microsoft.Extensions.DependencyInjection` 系を使用。
 
 ## Configuration & External Dependencies
 
@@ -41,10 +43,10 @@ Program -> ServiceCollection.AddGameEngine()+host registrations -> ServiceProvid
 ## Extension Guidelines (existing conventions)
 
 - **Add enemy**: update [./../GameEngine/enemy-specs.yml](./../GameEngine/enemy-specs.yml); no code change unless you add a new `AttackStrategy` name.
-- **Add attack strategy**: implement `IAttackStrategy`, add mapping in [./../GameEngine/Models/AttackStrategy.cs](./../GameEngine/Models/AttackStrategy.cs), register name in [./../GameEngine/Constants/AttackStrategyNames.cs](./../GameEngine/Constants/AttackStrategyNames.cs), and add UI option in [./../GameEngine/Systems/UserInteraction.cs](./../GameEngine/Systems/UserInteraction.cs).
+- **Add attack strategy**: implement `IAttackStrategy`, add mapping in [./../GameEngine/Models/AttackStrategy.cs](./../GameEngine/Models/AttackStrategy.cs), register name in [./../GameEngine/Constants/AttackStrategyNames.cs](./../GameEngine/Constants/AttackStrategyNames.cs), and add UI option in [./../GameEngine.Console/UI/UserInteraction.cs](./../GameEngine.Console/UI/UserInteraction.cs).
 - **Add weapons/items**: extend [./../GameEngine/Factory/WeaponFactory.cs](./../GameEngine/Factory/WeaponFactory.cs) and surface in [./../GameEngine/Systems/ShopSystem.cs](./../GameEngine/Systems/ShopSystem.cs).
 
 ## Console Interaction Details
 
-- Strategy selection uses arrow keys and redraws via ANSI escapes (`\x1b[1A`, `\x1b[2K`) in [./../GameEngine/Systems/UserInteraction.cs](./../GameEngine/Systems/UserInteraction.cs).
+- Strategy/menu selection uses arrow keys and redraws via ANSI escapes (`\x1b[s`/`\x1b[u`/`\x1b[0J` in `ConsoleRenderer.SelectFromMenu`; `\x1b[1A`, `\x1b[2K` in `UserInteraction.ClearLastOutput`). UI lives in [./../GameEngine.Console/UI/ConsoleRenderer.cs](./../GameEngine.Console/UI/ConsoleRenderer.cs) and [./../GameEngine.Console/UI/UserInteraction.cs](./../GameEngine.Console/UI/UserInteraction.cs).
 - Input validation favors `ReadPositiveInteger()` with quit options.

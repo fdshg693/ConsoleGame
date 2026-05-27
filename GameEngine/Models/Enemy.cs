@@ -17,7 +17,9 @@ namespace GameEngine.Models
         public int YieldExperience { get; private set; } = 0;
         public int YieldGold { get; private set; } = 0;
 
-        public Enemy(string name, int hp, IAttackStrategy attackStrategy, int experience, int aP, int dP, int yieldGold)
+        private readonly IGameMessageBus _bus;
+
+        public Enemy(string name, int hp, IAttackStrategy attackStrategy, int experience, int aP, int dP, int yieldGold, IGameMessageBus bus)
         {
             Name = name;
             HP = hp;
@@ -27,6 +29,7 @@ namespace GameEngine.Models
             YieldGold = yieldGold;
             BaseAP = aP;
             BaseDP = dP;
+            _bus = bus ?? throw new ArgumentNullException(nameof(bus));
         }
         public void Attack(ICharacter character)
         {
@@ -37,7 +40,7 @@ namespace GameEngine.Models
             int damage = Math.Max(amount - BaseDP, 0);
             HP -= damage;
             if (HP < 0) HP = 0;
-            GameMessageBus.Publish($"{Name} takes {damage} damage! Remaining HP: {HP}", MessageType.Combat);
+            _bus.Publish($"{Name} takes {damage} damage! Remaining HP: {HP}", MessageType.Combat);
         }
         public void Heal(int amount)
         {

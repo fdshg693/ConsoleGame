@@ -18,14 +18,16 @@ namespace GameEngine.Systems
         private readonly Random _random;
         private readonly GameConfig _config;
 
-        public EventManager(IPlayer player, IGameInput input, GameConfig config, IEnemyFactory enemyFactory)
+        public EventManager(IPlayer player, IGameInput input, GameConfig config, IEnemyFactory enemyFactory, IRenderer renderer)
         {
             _player = player ?? throw new ArgumentNullException(nameof(player));
             _input = input ?? throw new ArgumentNullException(nameof(input));
             _config = config ?? throw new ArgumentNullException(nameof(config));
             if (enemyFactory == null)
                 throw new ArgumentNullException(nameof(enemyFactory));
-            _battleManager = new BattleManager(_player, _input, enemyFactory);
+            if (renderer == null)
+                throw new ArgumentNullException(nameof(renderer));
+            _battleManager = new BattleManager(_player, _input, enemyFactory, renderer);
             _random = new Random();
         }
 

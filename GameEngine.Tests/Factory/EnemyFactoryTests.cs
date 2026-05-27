@@ -1,6 +1,7 @@
 using Xunit;
 using GameEngine.Configuration;
 using GameEngine.Factory;
+using GameEngine.Models;
 
 namespace GameEngine.Tests.Factory
 {
@@ -14,6 +15,7 @@ namespace GameEngine.Tests.Factory
         private static EnemyFactory CreateFactory() =>
             new EnemyFactory(
                 new EnemyConfig { GoldBaseMultiplier = 2, GoldRandomMin = 1, GoldRandomMax = 10 },
+                new GameMessageBus(),
                 new Random(12345));
 
         [Fact]

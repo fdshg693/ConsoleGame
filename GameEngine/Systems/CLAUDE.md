@@ -11,13 +11,13 @@ Systems/
   ShopSystem.cs         # ショップ処理（ポーション購入・武器購入）
   RestSystem.cs         # 休憩処理（ポーション使用）
   GameRecord.cs         # 勝敗記録（static）
-  ConsoleGameInput.cs   # IGameInput のコンソール実装
-  UserInteraction.cs    # コンソール入力ユーティリティ（static）
   BattleSystem/
     BattleManager.cs    # ターン制戦闘ループ
   StateMachine/         # ステートマシンによるゲームループ制御
     CLAUDE.md           # ← 詳細はこちらを参照
 ```
+
+- コンソール固有 UI（`ConsoleRenderer` / `ConsoleGameInput` / `UserInteraction`）は `GameEngine.Console/UI/` へ移動済み（コア `Systems/` には無い）。コアは `IRenderer` / `IGameInput` 経由で描画・入力を行う。
 
 ## 処理フロー
 
@@ -37,37 +37,20 @@ GameSystem.RunGameLoop()
 ## 主要クラス詳細
 
 ### GameSystem（IDisposable）
-- `Player` / `IGameInput` / `EventManager` / `IPlayerRepository?` をコンストラクタ注入で受け取り、`GameFlowContext` を組み立てる（`EventManager` は Program.cs で生成・注入される）
+- コンストラクタ: `GameSystem(IPlayer player, IGameInput input, EventManager eventManager, IRenderer renderer, IGameMessageBus bus, IPlayerRepository? playerRepository = null)`。`GameFlowContext` を組み立てる（`EventManager` は DI で解決・注入される）
 - `RunGameLoop()` で `GameStateMachine` を生成・実行する（推奨エントリ）
 - `Encounter()` は後方互換用メソッド
-- コンストラクタで `GameMessageBus.MessagePublished` を購読し、`Dispose()` で解除する（重複購読・テスト間のイベント漏れ防止）
+- コンストラクタで注入された `IGameMessageBus.MessagePublished` を購読し、発行メッセージを注入された `IRenderer`（`RenderMessage`）へ流す。`Dispose()` で購読を解除する（重複購読・テスト間のイベント漏れ防止）
 - `IPlayerRepository` が null（MongoDB 利用不可）の場合、セーブ時に `GameFlowContext` が「利用不可」を通知して続行する
 
 ### EventManager
-- コンストラクタ: `EventManager(IPlayer player, IGameInput input, GameConfig config, IEnemyFactory enemyFactory)`
-- `enemyFactory` を `new BattleManager(player, input, enemyFactory)` に渡して内部の `BattleManager` を生成
+- コンストラクタ: `EventManager(IPlayer player, IGameInput input, GameConfig config, IEnemyFactory enemyFactory, IRenderer renderer)`
+- `enemyFactory` / `renderer` を `new BattleManager(player, input, enemyFactory, renderer)` に渡して内部の `BattleManager` を生成
 - `TriggerRandomEvent()` でショップまたは戦闘イベントを発生させる
 - イベント重みは注入された `_config` から取得（`_config.Events.ShopEventWeight` / `TotalWeight`）
 - ショップイベント時はゴールド報酬（ランダム範囲）も付与される
 - ショップ呼び出し時はポーション価格 `config.Items.Potion.Price` を `ShopSystem.CreateShopState(potionPrice)` と `ShopSystem.ProcessShopAction(player, action, potionPrice)` に渡す
 - `GameEventType` 列挙型に `Treasure` / `Rest` が予約済み（未実装）
-
-### ConsoleGameInput
-- `IGameInput` インターフェースのコンソール向け実装
-- コンストラクタ: `ConsoleGameInput(int potionPrice, int potionHealAmount)`
-- 注入された `potionPrice` / `potionHealAmount` をショップ・休憩の表示に使用（`GameConstants` は参照しない）
-- テスト時はモックに差し替え可能
-- 戦闘行動: `UserInteraction.SelectAttackStrategy()` に委譲
-- ショップ行動: 数字キー（1/2/3）で操作
-- 休憩行動: `ReadPositiveInteger()` でポーション数入力
-
-### UserInteraction (static)
-- コンソール入力の共通ユーティリティ
-- `ReadPositiveInteger()` - 範囲付き正整数入力。最大試行回数 5 回、"Q" でスキップ
-- `ReadConfirmation()` - Yes/No 入力（"はい"/"いいえ" にも対応）
-- `ReadChoice()` - 番号選択式メニュー
-- `SelectAttackStrategy()` - 矢印キーで戦略を切り替え、Enter で確定。ANSI エスケープで行を書き換える
-- `SelectGameAction()` - 上下キーで続行/セーブ/終了を選択
 
 ### ShopSystem (static)
 - `CreateShopState(int potionPrice)` - 武器一覧（SWORD / AXE / BOW）と注入されたポーション価格で `ShopState` を生成
@@ -87,11 +70,11 @@ GameSystem.RunGameLoop()
 ## BattleSystem サブフォルダ
 
 ### BattleManager
-- コンストラクタ: `BattleManager(IPlayer player, IGameInput input, IEnemyFactory enemyFactory)`
-- ターン制戦闘ループを管理する
+- コンストラクタ: `BattleManager(IPlayer player, IGameInput input, IEnemyFactory enemyFactory, IRenderer renderer)`
+- ターン制戦闘ループを管理する。画面クリア・ステータスパネル・HP バー・結果ボックス・キー待ちは注入された `IRenderer` 経由で描画する（`ConsoleRenderer` 直呼びはしない）
 - `StartBattle()` で注入された `_enemyFactory.CreateRandomEnemy()` を呼び敵を生成（敵注入・決定性のテストシームとなる）
 - 各ターンの流れ:
-  1. `IGameInput.SelectAttackAction()` でプレイヤーの攻撃戦略を取得
+  1. `IGameInput.SelectAttackAction()` でプレイヤーの攻撃戦略を取得（コンソール実装は内部で `UserInteraction.SelectAttackStrategy()` に委譲）
   2. `Player.Attack(enemy)` でプレイヤー攻撃
   3. 敵撃破チェック -> 勝利処理（`GameRecord.RecordWin()` + `Player.DefeatEnemy()`）
   4. `enemy.Attack(player)` で敵攻撃
@@ -110,5 +93,5 @@ GameSystem.RunGameLoop()
 
 - 新しいイベント種別を追加する場合は `EventManager.DetermineEventType()` と `TriggerRandomEvent()` の switch に分岐を追加する
 - ショップの武器一覧を変更する場合は `ShopSystem.CreateShopState()` を編集する
-- `UserInteraction` のキー操作はANSIエスケープに依存するため、非対応ターミナルでは表示が崩れる可能性がある
-- `IGameInput` のシグネチャ変更時は `ConsoleGameInput` とテストモック両方の更新が必要
+- コア `Systems/` から `System.Console` を直接呼ばない。表示は `IRenderer`、入力は `IGameInput` 経由とする
+- `IGameInput`（`SelectAttackAction` / `SelectShopAction` / `SelectRestAction` / `SelectGameAction`）のシグネチャ変更時は、`GameEngine.Console/UI/ConsoleGameInput` とテストモック両方の更新が必要

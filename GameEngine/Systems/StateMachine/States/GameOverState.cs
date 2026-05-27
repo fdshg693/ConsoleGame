@@ -1,5 +1,3 @@
-using GameEngine.Systems;
-
 namespace GameEngine.Systems.StateMachine
 {
     /// <summary>
@@ -11,7 +9,7 @@ namespace GameEngine.Systems.StateMachine
 
         public Trigger Execute(GameFlowContext context)
         {
-            ConsoleRenderer.ClearScreen("GAME OVER");
+            context.ClearScreen("GAME OVER");
             context.DisplayGameOver();
             return Trigger.Done;
         }

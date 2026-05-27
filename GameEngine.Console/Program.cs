@@ -1,3 +1,4 @@
+using CliRpgGame.UI;
 using GameEngine.Configuration;
 using GameEngine.Constants;
 using GameEngine.DependencyInjection;
@@ -33,19 +34,30 @@ namespace CliRpgGame
                 // 依存の組み立て（Composition Root）— DI コンテナへ移行
                 var services = new ServiceCollection();
 
-                // コア依存（設定・敵生成ファクトリ・進行制御）をまとめて登録
+                // コア依存（設定・敵生成ファクトリ・進行制御・メッセージバス）をまとめて登録
                 services.AddGameEngine();
 
-                // コンソール固有の入力実装
+                // 出力（描画）のコンソール実装。GameSystem / EventManager（IRenderer 経由）と
+                // ConsoleGameInput（メニュー描画）が同一インスタンスを共有するよう単一の ConsoleRenderer を登録する。
+                services.AddSingleton<ConsoleRenderer>();
+                services.AddSingleton<IRenderer>(sp => sp.GetRequiredService<ConsoleRenderer>());
+
+                // コンソール固有の入力実装（描画は ConsoleRenderer を共有）
                 services.AddSingleton<IGameInput>(sp =>
                 {
                     var c = sp.GetRequiredService<GameConfig>();
-                    return new ConsoleGameInput(c.Items.Potion.Price, c.Items.Potion.HealAmount);
+                    return new ConsoleGameInput(
+                        sp.GetRequiredService<ConsoleRenderer>(),
+                        c.Items.Potion.Price,
+                        c.Items.Potion.HealAmount);
                 });
 
                 // プレイヤー（名前は実行時入力。将来はセッション単位で生成する）
                 services.AddSingleton<IPlayer>(sp =>
-                    CreatePlayer(playerName, sp.GetRequiredService<GameConfig>()));
+                    CreatePlayer(
+                        playerName,
+                        sp.GetRequiredService<GameConfig>(),
+                        sp.GetRequiredService<IGameMessageBus>()));
 
                 // セーブ用リポジトリ。MongoDB が利用できない場合は登録せず、
                 // GameSystem は IPlayerRepository? の既定値（null）でセーブ無効のまま続行する。
@@ -95,20 +107,22 @@ namespace CliRpgGame
         /// <summary>
         /// プレイヤーオブジェクトを作成する
         /// </summary>
-        private static IPlayer CreatePlayer(string name, GameConfig config)
+        private static IPlayer CreatePlayer(string name, GameConfig config, IGameMessageBus bus)
         {
-            var experienceManager = new ExperienceManager(config.LevelUp.ExperienceRequired);
+            var experienceManager = new ExperienceManager(config.LevelUp.ExperienceRequired, bus);
             var inventoryManager = new InventoryManager(
                 config.Player.InitialGold,
                 config.Player.InitialPotions,
-                config.Items.Potion.Price);
+                config.Items.Potion.Price,
+                bus);
 
             return new Player(
                 name,
                 config,
                 AttackStrategy.GetAttackStrategy(AttackStrategyNames.Default),
                 experienceManager,
-                inventoryManager);
+                inventoryManager,
+                bus);
         }
     }
 }
