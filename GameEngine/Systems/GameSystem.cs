@@ -7,19 +7,20 @@ namespace GameEngine.Systems
     /// <summary>
     /// ゲームのメインループと全体進行を管理するクラス
     /// </summary>
-    public class GameSystem
+    public class GameSystem : IDisposable
     {
         private readonly IPlayer _player;
         private readonly EventManager _eventManager;
         private readonly IGameInput _input;
         private readonly IPlayerRepository? _playerRepository;
+        private bool _disposed;
 
-        public GameSystem(IPlayer player, IGameInput input, IPlayerRepository? playerRepository = null)
+        public GameSystem(IPlayer player, IGameInput input, EventManager eventManager, IPlayerRepository? playerRepository = null)
         {
             _player = player ?? throw new ArgumentNullException(nameof(player));
             _input = input ?? throw new ArgumentNullException(nameof(input));
+            _eventManager = eventManager ?? throw new ArgumentNullException(nameof(eventManager));
             _playerRepository = playerRepository;
-            _eventManager = new EventManager(_player, _input);
 
             GameMessageBus.MessagePublished += OnMessagePublished;
         }
@@ -68,6 +69,21 @@ namespace GameEngine.Systems
         private static void RenderMessages(IEnumerable<GameMessage> messages)
         {
             ConsoleRenderer.RenderMessages(messages);
+        }
+
+        /// <summary>
+        /// 静的イベントバス（GameMessageBus）の購読を解除する。
+        /// 複数インスタンス生成時の重複購読・テスト間のイベント漏れを防ぐ。
+        /// </summary>
+        public void Dispose()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            GameMessageBus.MessagePublished -= OnMessagePublished;
+            _disposed = true;
         }
     }
 }

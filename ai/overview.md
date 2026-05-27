@@ -2,13 +2,13 @@ This is a C# console RPG engine on .NET 8.0. The runtime is a layered system tha
 
 ## Architecture & Data Flow
 
-- **Entry/loop**: [./../GameEngine/Program.cs](./../GameEngine/Program.cs) initializes the player, creates `IPlayerRepository`, and injects both into `GameSystem`.
+- **Entry/Composition Root**: [./../GameEngine/Program.cs](./../GameEngine/Program.cs) は唯一の合成起点。`GameConfig` を一度だけ取得し、`Player` / `EventManager` / `IPlayerRepository` を生成して `GameSystem` にコンストラクタ注入する（`GameConfigLoader.Instance` への直アクセスは Program に限定）。
 - **Event routing**: [./../GameEngine/Systems/GameSystem.cs](./../GameEngine/Systems/GameSystem.cs) decides between shop vs battle (1/3 shop, 2/3 battle).
 - **Combat**: [./../GameEngine/Systems/BattleSystem/BattleManager.cs](./../GameEngine/Systems/BattleSystem/BattleManager.cs) coordinates turns; player strategy selection lives in [./../GameEngine/Systems/UserInteraction.cs](./../GameEngine/Systems/UserInteraction.cs).
 - **Composition**: `Player` owns `HealthManager`, `InventoryManager`, `ExperienceManager` (see [./../GameEngine/Models/Player.cs](./../GameEngine/Models/Player.cs) and [./../GameEngine/Manager](./../GameEngine/Manager)).
 
 ```
-Program -> GameSystem(IPlayerRepository) -> [ShopSystem | BattleSystem] -> Player/Enemy -> Managers
+Program(config) -> GameSystem(Player, Input, EventManager, IPlayerRepository?) -> [ShopSystem | BattleSystem] -> Player/Enemy -> Managers
 ```
 
 ## Core Patterns (project-specific)

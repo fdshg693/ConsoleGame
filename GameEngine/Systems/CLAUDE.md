@@ -36,15 +36,17 @@ GameSystem.RunGameLoop()
 
 ## 主要クラス詳細
 
-### GameSystem
-- ゲーム全体の起動と依存の組み立てを担う
+### GameSystem（IDisposable）
+- `Player` / `IGameInput` / `EventManager` / `IPlayerRepository?` をコンストラクタ注入で受け取り、`GameFlowContext` を組み立てる（`EventManager` は Program.cs で生成・注入される）
 - `RunGameLoop()` で `GameStateMachine` を生成・実行する（推奨エントリ）
 - `Encounter()` は後方互換用メソッド
-- `SaveDataManager` の初期化に失敗した場合、セーブなしで続行する
+- コンストラクタで `GameMessageBus.MessagePublished` を購読し、`Dispose()` で解除する（重複購読・テスト間のイベント漏れ防止）
+- `IPlayerRepository` が null（MongoDB 利用不可）の場合、セーブ時に `GameFlowContext` が「利用不可」を通知して続行する
 
 ### EventManager
 - `TriggerRandomEvent()` でショップまたは戦闘イベントを発生させる
-- イベント重みは `GameConfigLoader` から取得（`_config.Events.ShopEventWeight` / `TotalWeight`）
+- `GameConfig` をコンストラクタ注入で受け取る（旧: `GameConfigLoader.Instance` 直アクセス）
+- イベント重みは注入された `_config` から取得（`_config.Events.ShopEventWeight` / `TotalWeight`）
 - ショップイベント時はゴールド報酬（ランダム範囲）も付与される
 - `GameEventType` 列挙型に `Treasure` / `Rest` が予約済み（未実装）
 

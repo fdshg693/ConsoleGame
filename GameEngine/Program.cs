@@ -16,7 +16,8 @@ namespace CliRpgGame
                 Console.WriteLine("=== CLI RPG Game ===");
                 Console.WriteLine("Loading game configuration...");
 
-                // 設定を事前に読み込む（エラーチェックのため）
+                // 設定を一度だけ読み込み、以降は明示的に引き回す
+                // （静的シングルトンへの直アクセスはこの Composition Root に集約する）
                 var config = GameConfigLoader.Instance;
                 Console.WriteLine("Configuration loaded successfully!\n");
 
@@ -27,17 +28,17 @@ namespace CliRpgGame
                     ? "Hero"
                     : input.Trim();
 
-                // プレイヤーの初期化
-                IPlayer player = CreatePlayer(playerName);
+                // 依存の組み立て（Composition Root）
+                IPlayer player = CreatePlayer(playerName, config);
 
                 // リポジトリの初期化（MongoDBが利用できない場合はnull）
                 IPlayerRepository? playerRepository = CreatePlayerRepository(config);
 
-                // ゲームシステムの初期化
                 var gameInput = new ConsoleGameInput();
-                var gameSystem = new GameSystem(player, gameInput, playerRepository);
+                var eventManager = new EventManager(player, gameInput, config);
 
-                // ゲームループの実行
+                // ゲームシステムの初期化と実行（IDisposable で GameMessageBus の購読を解除）
+                using var gameSystem = new GameSystem(player, gameInput, eventManager, playerRepository);
                 gameSystem.RunGameLoop();
 
                 Console.WriteLine("\nThank you for playing! Press any key to exit.");
@@ -73,17 +74,15 @@ namespace CliRpgGame
         /// <summary>
         /// プレイヤーオブジェクトを作成する
         /// </summary>
-        private static IPlayer CreatePlayer(string name)
+        private static IPlayer CreatePlayer(string name, GameConfig config)
         {
-            var config = GameConfigLoader.Instance;
-
             var experienceManager = new ExperienceManager();
             var inventoryManager = new InventoryManager();
-            
+
             return new Player(
                 name,
                 config.Player.InitialHP,
-                AttackStrategy.GetAttackStrategy("Default"),
+                AttackStrategy.GetAttackStrategy(AttackStrategyNames.Default),
                 experienceManager,
                 inventoryManager);
         }

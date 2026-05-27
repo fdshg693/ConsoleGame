@@ -117,29 +117,20 @@ namespace GameEngine.Configuration
         {
             try
             {
-                // 絶対パスを取得してログ出力
-                string absolutePath = Path.GetFullPath(configPath);
-                string currentDirectory = Directory.GetCurrentDirectory();
-                
-                Console.WriteLine($"[DEBUG] Current directory: {currentDirectory}");
-                Console.WriteLine($"[DEBUG] Config relative path: {configPath}");
-                Console.WriteLine($"[DEBUG] Config absolute path: {absolutePath}");
-                
-                // ファイル存在チェック
-                if (!File.Exists(configPath))
+                // 設定ファイルを解決（CWD相対 → 出力ディレクトリの順に探索）
+                string? resolvedPath = ResolveConfigPath(configPath);
+                if (resolvedPath == null)
                 {
-                    Console.WriteLine($"Config file not found at: {configPath}");
-                    Console.WriteLine($"Absolute path tried: {absolutePath}");
-                    Console.WriteLine("Using default values.");
+                    Console.WriteLine($"Config file not found (tried '{configPath}' and app base directory). Using default values.");
                     return CreateDefaultConfig();
                 }
 
                 // YAML読み込み
-                string yaml = File.ReadAllText(configPath);
-                
+                string yaml = File.ReadAllText(resolvedPath);
+
                 if (string.IsNullOrWhiteSpace(yaml))
                 {
-                    Console.WriteLine($"Config file is empty: {configPath}. Using default values.");
+                    Console.WriteLine($"Config file is empty: {resolvedPath}. Using default values.");
                     return CreateDefaultConfig();
                 }
 
@@ -148,12 +139,12 @@ namespace GameEngine.Configuration
 
                 if (config == null)
                 {
-                    Console.WriteLine($"Failed to parse config file: {configPath}. Using default values.");
+                    Console.WriteLine($"Failed to parse config file: {resolvedPath}. Using default values.");
                     return CreateDefaultConfig();
                 }
 
                 ValidateConfig(config);
-                Console.WriteLine($"Successfully loaded game configuration from {configPath}");
+                Console.WriteLine($"Successfully loaded game configuration from {resolvedPath}");
                 return config;
             }
             catch (YamlDotNet.Core.YamlException ex)
@@ -168,6 +159,28 @@ namespace GameEngine.Configuration
                 Console.WriteLine("Using default configuration values.");
                 return CreateDefaultConfig();
             }
+        }
+
+        /// <summary>
+        /// 設定ファイルの実在パスを解決する。
+        /// 1) 指定パス（カレントディレクトリ相対）、2) 出力ディレクトリ
+        /// （CopyToOutputDirectory: Always でコピーされた設定）の順に探索する。
+        /// </summary>
+        /// <returns>見つかったパス。いずれも存在しない場合は null。</returns>
+        private static string? ResolveConfigPath(string configPath)
+        {
+            if (File.Exists(configPath))
+            {
+                return configPath;
+            }
+
+            string baseDirCandidate = Path.Combine(AppContext.BaseDirectory, Path.GetFileName(configPath));
+            if (File.Exists(baseDirCandidate))
+            {
+                return baseDirCandidate;
+            }
+
+            return null;
         }
 
         /// <summary>

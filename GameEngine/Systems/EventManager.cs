@@ -18,13 +18,13 @@ namespace GameEngine.Systems
         private readonly Random _random;
         private readonly GameConfig _config;
 
-        public EventManager(IPlayer player, IGameInput input)
+        public EventManager(IPlayer player, IGameInput input, GameConfig config)
         {
             _player = player ?? throw new ArgumentNullException(nameof(player));
             _input = input ?? throw new ArgumentNullException(nameof(input));
+            _config = config ?? throw new ArgumentNullException(nameof(config));
             _battleManager = new BattleManager(_player, _input);
             _random = new Random();
-            _config = GameConfigLoader.Instance;
         }
 
         /// <summary>
