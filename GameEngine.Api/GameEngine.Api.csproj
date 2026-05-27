@@ -16,6 +16,8 @@
   <ItemGroup>
     <!-- コアエンジン。YAML 設定（CopyToOutputDirectory=Always）は本プロジェクトの出力にも伝播する -->
     <ProjectReference Include="..\GameEngine\GameEngine.csproj" />
+    <!-- 共有契約（GameStateResponse / リクエスト DTO）。Web と二重定義しない単一の真実 -->
+    <ProjectReference Include="..\GameEngine.Contracts\GameEngine.Contracts.csproj" />
   </ItemGroup>
 
 </Project>

@@ -3,6 +3,7 @@ This is a C# console RPG engine on .NET 8.0. The runtime is a layered system tha
 ## Solution Structure
 
 - `GameEngine`（Library, net8.0）: ゲームロジック・DTO・Manager・StateMachine・DI 登録（`AddGameEngine`）。Exe ではなくライブラリ出力で、コンソール/API 両ホストから `ProjectReference` 可能。
+- `GameEngine.Contracts`（Library, net8.0, ASP.NET 非依存）: API と将来の Web フロント（Blazor WASM）が共有する HTTP 契約 DTO（`GameStateResponse` とリクエスト DTO 群）。`GameEngine` を `ProjectReference` して内側 DTO（`PlayerState` 等）を再公開する。参照方向は `GameEngine.Api` → `GameEngine.Contracts` → `GameEngine`。
 - `GameEngine.Console`（Exe, net8.0）: コンソールホスト。合成起点 [./../GameEngine.Console/Program.cs](./../GameEngine.Console/Program.cs) と UI 固有実装（`ConsoleRenderer` / `UserInteraction` / `ConsoleGameInput` を `UI/`、namespace `CliRpgGame.UI` に保持）。
 - `GameEngine.Api`（Web, net8.0）: ASP.NET Core Web API ホスト。1 リクエスト=1 ステップで `GameSystem.Step` を駆動し、`sessionId` で進行を分離する。詳細は [./../GameEngine.Api/CLAUDE.md](./../GameEngine.Api/CLAUDE.md)。
 - `GameEngine.Tests`（Test, net8.0）: xUnit + Moq。TFM はエンジンと統一。

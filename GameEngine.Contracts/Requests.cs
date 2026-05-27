@@ -1,6 +1,6 @@
 using GameEngine.DTOs;
 
-namespace GameEngine.Api.Contracts
+namespace GameEngine.Contracts
 {
     /// <summary>新規ゲーム開始リクエスト。名前未指定なら "Hero"。</summary>
     public sealed class CreateSessionRequest

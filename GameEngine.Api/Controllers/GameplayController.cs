@@ -1,6 +1,6 @@
-using GameEngine.Api.Contracts;
 using GameEngine.Api.Hosting;
 using GameEngine.Api.Mappers;
+using GameEngine.Contracts;
 using GameEngine.DTOs;
 using Microsoft.AspNetCore.Mvc;
 

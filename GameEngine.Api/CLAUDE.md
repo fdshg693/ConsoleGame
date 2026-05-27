@@ -2,6 +2,8 @@
 
 RPG エンジンを HTTP で駆動する **ASP.NET Core Web API ホスト**（net8.0, `Microsoft.NET.Sdk.Web`）。コアライブラリ [GameEngine](./../GameEngine/CLAUDE.md) を `ProjectReference` し、コンソール [GameEngine.Console](./../GameEngine.Console/CLAUDE.md) とコアを共有する（UI アダプタのみ差し替え）。
 
+- HTTP 契約 DTO（`GameStateResponse`／リクエスト DTO）は本プロジェクト内ではなく共有ライブラリ [GameEngine.Contracts](./../GameEngine.Contracts/CLAUDE.md) に置き、`ProjectReference` で参照する（Web フロントと二重定義しないため。`namespace GameEngine.Contracts`）。
+
 ## 役割
 
 - **1 リクエスト = 1 ゲームステップ**。各レスポンスは更新後の状態（`GameStateResponse`）を返す

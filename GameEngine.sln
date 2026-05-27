@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GameEngine.Console", "GameE
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GameEngine.Api", "GameEngine.Api\GameEngine.Api.csproj", "{69942DF0-8C0E-4FD1-AF1A-522D885869BE}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GameEngine.Contracts", "GameEngine.Contracts\GameEngine.Contracts.csproj", "{4328D807-4DF5-4FD6-AA07-47D1C112E8DD}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -69,6 +71,18 @@ Global
 		{69942DF0-8C0E-4FD1-AF1A-522D885869BE}.Release|x64.Build.0 = Release|Any CPU
 		{69942DF0-8C0E-4FD1-AF1A-522D885869BE}.Release|x86.ActiveCfg = Release|Any CPU
 		{69942DF0-8C0E-4FD1-AF1A-522D885869BE}.Release|x86.Build.0 = Release|Any CPU
+		{4328D807-4DF5-4FD6-AA07-47D1C112E8DD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4328D807-4DF5-4FD6-AA07-47D1C112E8DD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4328D807-4DF5-4FD6-AA07-47D1C112E8DD}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{4328D807-4DF5-4FD6-AA07-47D1C112E8DD}.Debug|x64.Build.0 = Debug|Any CPU
+		{4328D807-4DF5-4FD6-AA07-47D1C112E8DD}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{4328D807-4DF5-4FD6-AA07-47D1C112E8DD}.Debug|x86.Build.0 = Debug|Any CPU
+		{4328D807-4DF5-4FD6-AA07-47D1C112E8DD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4328D807-4DF5-4FD6-AA07-47D1C112E8DD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4328D807-4DF5-4FD6-AA07-47D1C112E8DD}.Release|x64.ActiveCfg = Release|Any CPU
+		{4328D807-4DF5-4FD6-AA07-47D1C112E8DD}.Release|x64.Build.0 = Release|Any CPU
+		{4328D807-4DF5-4FD6-AA07-47D1C112E8DD}.Release|x86.ActiveCfg = Release|Any CPU
+		{4328D807-4DF5-4FD6-AA07-47D1C112E8DD}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

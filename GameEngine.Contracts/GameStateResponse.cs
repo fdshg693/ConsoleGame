@@ -1,7 +1,7 @@
 using GameEngine.DTOs;
 using GameEngine.Models;
 
-namespace GameEngine.Api.Contracts
+namespace GameEngine.Contracts
 {
     /// <summary>
     /// 各 API ステップのレスポンス。既存 <see cref="GameState"/> DTO に、API 駆動で必要な

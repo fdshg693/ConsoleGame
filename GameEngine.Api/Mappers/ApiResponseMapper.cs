@@ -1,5 +1,5 @@
-using GameEngine.Api.Contracts;
 using GameEngine.Api.Hosting;
+using GameEngine.Contracts;
 using GameEngine.DTOs;
 
 namespace GameEngine.Api.Mappers
