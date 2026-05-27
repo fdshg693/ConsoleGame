@@ -1,6 +1,6 @@
-# GameEngine - CLI / API RPG ゲームエンジン
+# GameEngine - CLI / API / ブラウザ RPG ゲームエンジン
 
-ターン制 RPG のゲームロジックをコアライブラリ化し、コンソールと Web API の双方のホストから駆動できる .NET 8.0 製エンジンです。プレイヤーは敵と戦い、経験値を獲得し、装備を強化しながら冒険を進めます。
+ターン制 RPG のゲームロジックをコアライブラリ化し、**コンソール / Web API / ブラウザ（Blazor WASM）** の各ホストから駆動できる .NET 8.0 製エンジンです。プレイヤーは敵と戦い、経験値を獲得し、装備を強化しながら冒険を進めます。
 
 ## 🚀 クイックスタート
 
@@ -11,9 +11,13 @@ docker-compose up -d
 # コンソール版を起動
 dotnet run --project GameEngine.Console
 
-# または Web API 版を起動（Swagger UI: http://localhost:5080/swagger）
+# Web / ブラウザ版を起動（API + ブラウザSPA を同一オリジンで配信）
 dotnet run --project GameEngine.Api
+#   ブラウザでプレイ : http://localhost:5080         （ゲーム本体）
+#   Swagger（API 仕様）: http://localhost:5080/swagger
 ```
+
+> **注意**: ブラウザ版は必ず `GameEngine.Api`（:5080）を起動して http://localhost:5080 を開きます。`GameEngine.Web` を単体起動すると API が同梱されず、セッション作成（`POST /api/sessions`）が **405 Method Not Allowed** になります（ホスト型配信の仕様）。
 
 ## 特徴
 
@@ -41,6 +45,8 @@ dotnet run --project GameEngine.Api
 | MongoDB.Driver | 3.5.0 | MongoDB との通信（セーブ） |
 | Microsoft.Extensions.DependencyInjection.Abstractions | 8.0.0 | DI 登録 |
 | Swashbuckle.AspNetCore | 6.6.2 | Swagger / OpenAPI（API のみ） |
+| Microsoft.AspNetCore.Components.WebAssembly.Server | 8.0.21 | ブラウザSPA のホスト型配信（API のみ） |
+| Microsoft.AspNetCore.Components.WebAssembly | 8.0.21 | Blazor WASM フロント（Web のみ） |
 
 ## インストール・実行方法
 
@@ -84,13 +90,23 @@ dotnet test                               # テスト実行
    - **Save & Quit**: セーブして終了
    - **Quit**: セーブせずに終了
 
-## Web API 版
+## Web / ブラウザ版
+
+### ブラウザでプレイ（Blazor WASM）
+
+- `GameEngine.Web` がブラウザ用 SPA（Blazor WebAssembly）。`GameEngine.Api` が**ホスト型配信**し、ゲーム本体と API を**同一オリジン**で出す（CORS 不要、デプロイ単位は 1 つ）
+- 遊び方: `dotnet run --project GameEngine.Api` →ブラウザで **http://localhost:5080** を開く →プレイヤー名を入力して開始
+- SPA は `HttpClient` で `/api/...` を叩き、`ExpectedInput` に応じて画面（戦闘 / ショップ / 休憩 / 続行 / 終了）を出し分ける。セーブ/ロード、リロード復帰（`sessionId` を localStorage に保持）にも対応
+- **`GameEngine.Web` を単体起動しないこと**: 静的ファイルしか配信されず、`POST /api/sessions` が **405** になる（→ クイックスタートの注意を参照）
+- 詳細は [GameEngine.Web/CLAUDE.md](GameEngine.Web/CLAUDE.md) を参照
+
+### API を直接叩く
 
 - ベースパス `/api`。1 リクエスト = 1 ゲームステップで、レスポンスは更新後の状態を返す
 - `sessionId` で進行を分離し、複数プレイヤーを並行処理
 - レスポンスの `ExpectedInput` を見て次に叩くエンドポイントを決める（`Attack`→`battle/turn` / `Shop`→`shop/action` / `Rest`→`rest` / `GameAction`→`continue` / `None`=終了）
 - 主なエンドポイント: `POST /sessions`（開始）/ `GET /sessions/{id}`（状態取得）/ `POST /sessions/{id}/battle/turn` / `POST /sessions/{id}/continue` / `POST /sessions/{id}/save`
-- 詳細は [GameEngine.Api/CLAUDE.md](GameEngine.Api/CLAUDE.md) を参照
+- HTTP 契約 DTO は `GameEngine.Contracts`（API とブラウザSPA が共有）。詳細は [GameEngine.Api/CLAUDE.md](GameEngine.Api/CLAUDE.md) を参照
 
 ## 敵の種類
 
@@ -132,10 +148,14 @@ GameEngine.sln
 │   ├── enemy-specs.yml         # 敵設定
 │   ├── weapon-specs.yml        # 武器設定
 │   └── game-config.yml         # ゲーム全体設定
+├── GameEngine.Contracts/       # 共有 HTTP 契約 DTO（API ⇄ ブラウザSPA）。GameEngine を ProjectReference
 ├── GameEngine.Console/         # コンソールホスト（Exe）: Program.cs（合成起点）+ UI/
-├── GameEngine.Api/             # Web API ホスト（ASP.NET Core）: マルチセッション駆動
+├── GameEngine.Api/             # Web API ホスト（ASP.NET Core）: マルチセッション駆動 + ブラウザSPA をホスト型配信
+├── GameEngine.Web/             # ブラウザ用フロント（Blazor WASM）: API を HttpClient で叩く SPA
 └── GameEngine.Tests/           # テスト（xUnit + Moq）
 ```
+
+参照方向: `GameEngine.Api` / `GameEngine.Web` → `GameEngine.Contracts` → `GameEngine`（`GameEngine.Web` は API に非依存）。
 
 ## 設計パターン
 
