@@ -1,106 +1,53 @@
 @page "/"
-@using System.Net.Http.Json
-@using System.Text.Json
-@using GameEngine.Contracts
-@inject HttpClient Http
-@inject JsonSerializerOptions JsonOptions
+@inject GameApiClient Api
+@inject SessionStore Store
+@inject NavigationManager Nav
 
-<PageTitle>疎通確認 - Console RPG</PageTitle>
+<PageTitle>Console RPG</PageTitle>
 
-<h1>API 疎通確認（フェーズ W1）</h1>
+<h1>Console RPG</h1>
 
-<p>
-    ホスト型配信された <code>GameEngine.Api</code> に対して、新規セッション開始（<code>POST /api/sessions</code>）と
-    状態取得（<code>GET /api/sessions/&#123;id&#125;</code>）を実行し、<code>GameStateResponse</code> を表示します。
-</p>
-
-<div class="mb-3">
-    <button class="btn btn-primary" @onclick="CreateSessionAsync" disabled="@_busy">新規セッション開始</button>
-    <button class="btn btn-secondary" @onclick="RefreshAsync" disabled="@(_busy || string.IsNullOrEmpty(_sessionId))">状態を再取得</button>
-</div>
-
-@if (_busy)
-{
-    <p><em>通信中...</em></p>
-}
+<p>ブラウザでプレイする、ステップ駆動の RPG。新規に冒険を始めましょう。</p>
 
 @if (_error is not null)
 {
     <div class="alert alert-danger" role="alert">@_error</div>
 }
 
-@if (_state is not null)
-{
-    <table class="table table-sm">
-        <tbody>
-            <tr><th>SessionId</th><td><code>@_state.SessionId</code></td></tr>
-            <tr><th>Player</th><td>@_state.Player?.Name（HP @_state.Player?.HP/@_state.Player?.MaxHP, Lv @_state.Player?.Level, Gold @_state.Player?.Gold）</td></tr>
-            <tr><th>Phase</th><td>@_state.Phase</td></tr>
-            <tr><th>CurrentStateName</th><td>@(_state.CurrentStateName ?? "(null)")</td></tr>
-            <tr><th>ExpectedInput</th><td><strong>@_state.ExpectedInput</strong></td></tr>
-            <tr><th>IsRunning / IsGameOver</th><td>@_state.IsRunning / @_state.IsGameOver</td></tr>
-            <tr><th>CurrentEnemy</th><td>@(_state.CurrentEnemy is null ? "(なし)" : $"{_state.CurrentEnemy.Name} HP {_state.CurrentEnemy.HP}/{_state.CurrentEnemy.MaxHP}")</td></tr>
-        </tbody>
-    </table>
+<div class="start-form">
+    <label>
+        プレイヤー名
+        <input class="form-control" @bind="_playerName" placeholder="Hero" disabled="@_busy" />
+    </label>
+    <button class="btn btn-primary" @onclick="StartNewAsync" disabled="@_busy">@(_busy ? "開始中..." : "新規開始")</button>
+</div>
 
-    <h2>Messages（このステップの差分）</h2>
-    @if (_state.Messages.Count == 0)
-    {
-        <p><em>(メッセージなし)</em></p>
-    }
-    else
-    {
-        <ul>
-            @foreach (var msg in _state.Messages)
-            {
-                <li>[@msg.Type] @msg.Text</li>
-            }
-        </ul>
-    }
-}
+@* ロード（セーブからの再開）はフェーズ W3 で追加する。 *@
 
 @code {
-    private GameStateResponse? _state;
-    private string? _sessionId;
-    private string? _error;
+    private string _playerName = string.Empty;
     private bool _busy;
+    private string? _error;
 
-    private async Task CreateSessionAsync()
+    private async Task StartNewAsync()
     {
-        await RunAsync(async () =>
+        if (_busy)
         {
-            var response = await Http.PostAsJsonAsync(
-                "api/sessions",
-                new CreateSessionRequest { PlayerName = "WebHero" },
-                JsonOptions);
-            response.EnsureSuccessStatusCode();
-            _state = await response.Content.ReadFromJsonAsync<GameStateResponse>(JsonOptions);
-            _sessionId = _state?.SessionId;
-        });
-    }
+            return;
+        }
 
-    private async Task RefreshAsync()
-    {
-        await RunAsync(async () =>
-        {
-            _state = await Http.GetFromJsonAsync<GameStateResponse>($"api/sessions/{_sessionId}", JsonOptions);
-        });
-    }
-
-    private async Task RunAsync(Func<Task> action)
-    {
         _busy = true;
         _error = null;
         try
         {
-            await action();
+            var name = string.IsNullOrWhiteSpace(_playerName) ? null : _playerName.Trim();
+            var state = await Api.CreateSessionAsync(name);
+            await Store.ApplyAsync(state);
+            Nav.NavigateTo("/play");
         }
         catch (Exception ex)
         {
-            _error = $"通信に失敗しました: {ex.Message}";
-        }
-        finally
-        {
+            _error = $"セッションの開始に失敗しました: {ex.Message}";
             _busy = false;
         }
     }

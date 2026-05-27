@@ -1,0 +1,21 @@
+@* プレイヤーの現在ステータス（HP/Lv/EXP/Gold/Potions/装備/AP/DP）。全フェーズ共通で表示する。 *@
+
+@if (Player is not null)
+{
+    <div class="panel player-panel">
+        <div class="panel-title">@Player.Name <span class="badge bg-secondary">Lv @Player.Level</span></div>
+        <HpBar Current="Player.HP" Max="Player.MaxHP" />
+        <ul class="stat-list">
+            <li><span class="stat-label">EXP</span><span class="stat-value">@Player.Experience</span></li>
+            <li><span class="stat-label">Gold</span><span class="stat-value">@Player.Gold</span></li>
+            <li><span class="stat-label">Potions</span><span class="stat-value">@Player.Potions</span></li>
+            <li><span class="stat-label">AP</span><span class="stat-value">@Player.AttackPower</span></li>
+            <li><span class="stat-label">DP</span><span class="stat-value">@Player.DefensePower</span></li>
+            <li><span class="stat-label">Weapon</span><span class="stat-value">@(string.IsNullOrEmpty(Player.EquippedWeapon) ? "(なし)" : Player.EquippedWeapon)</span></li>
+        </ul>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public PlayerState? Player { get; set; }
+}

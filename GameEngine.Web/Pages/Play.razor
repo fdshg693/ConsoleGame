@@ -1,0 +1,187 @@
+@page "/play"
+@implements IDisposable
+@inject GameApiClient Api
+@inject SessionStore Store
+@inject NavigationManager Nav
+
+<PageTitle>プレイ - Console RPG</PageTitle>
+
+@if (Store.Current is null)
+{
+    <p><em>セッションがありません。メニューへ戻ります...</em></p>
+}
+else
+{
+    var state = Store.Current;
+
+    <div class="play-grid">
+        <aside class="play-side">
+            <PlayerPanel Player="state.Player" />
+            <MessageLog Messages="Store.Log" />
+        </aside>
+
+        <section class="play-main">
+            @if (_error is not null)
+            {
+                <div class="alert alert-danger" role="alert">@_error</div>
+            }
+
+            @if (state.ExpectedInput == ExpectedInput.Attack)
+            {
+                <h2>戦闘</h2>
+                <EnemyPanel Enemy="state.CurrentEnemy" />
+                @if (state.CurrentBattle is not null)
+                {
+                    <p class="turn">ターン @state.CurrentBattle.TurnNumber</p>
+                    <div class="action-row">
+                        @foreach (var strategy in state.CurrentBattle.AvailableStrategies)
+                        {
+                            var s = strategy;
+                            <button class="btn btn-danger" disabled="@_busy" @onclick="() => AttackAsync(s)">@s で攻撃</button>
+                        }
+                    </div>
+                }
+            }
+            else if (state.ExpectedInput == ExpectedInput.Shop && state.CurrentShop is not null)
+            {
+                <h2>ショップ</h2>
+                <div class="shop-section">
+                    <h3>ポーション（@state.CurrentShop.PotionPrice Gold）</h3>
+                    <div class="action-row">
+                        <label>数量 <input type="number" min="1" class="qty-input" @bind="_potionQty" /></label>
+                        <button class="btn btn-success" disabled="@_busy" @onclick="BuyPotionAsync">ポーション購入</button>
+                    </div>
+                </div>
+
+                <div class="shop-section">
+                    <h3>武器</h3>
+                    @if (state.CurrentShop.AvailableWeapons.Count == 0)
+                    {
+                        <p class="text-muted"><em>(購入可能な武器なし)</em></p>
+                    }
+                    else
+                    {
+                        <ul class="weapon-list">
+                            @foreach (var weapon in state.CurrentShop.AvailableWeapons)
+                            {
+                                var w = weapon;
+                                <li>
+                                    <span>@w.Name（AP @w.AttackPower / DP @w.DefensePower / @w.Price Gold）</span>
+                                    <button class="btn btn-outline-success btn-sm" disabled="@_busy" @onclick="() => BuyWeaponAsync(w.Name)">購入</button>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
+
+                <div class="action-row">
+                    <button class="btn btn-secondary" disabled="@_busy" @onclick="ExitShopAsync">ショップを出る</button>
+                </div>
+            }
+            else if (state.ExpectedInput == ExpectedInput.Rest)
+            {
+                <h2>休憩</h2>
+                <p>ポーションを使って回復するか、そのまま進めます。</p>
+                <div class="action-row">
+                    <button class="btn btn-success" disabled="@(_busy || state.Player.Potions <= 0)" @onclick="UsePotionAsync">
+                        ポーションを使う（所持 @state.Player.Potions）
+                    </button>
+                    <button class="btn btn-secondary" disabled="@_busy" @onclick="SkipRestAsync">何もせず進む</button>
+                </div>
+            }
+            else if (state.ExpectedInput == ExpectedInput.GameAction)
+            {
+                <h2>次へ</h2>
+                <p>このエンカウントを終えました。続けますか？</p>
+                <div class="action-row">
+                    <button class="btn btn-primary" disabled="@_busy" @onclick="ContinueGameAsync">続ける</button>
+                    <button class="btn btn-outline-secondary" disabled="@_busy" @onclick="QuitGameAsync">終了する</button>
+                </div>
+                @* セーブ付きの進行（SaveAndContinue / SaveAndQuit）は W3 で追加。 *@
+            }
+            else
+            {
+                @* ExpectedInput.None = 終了 / ゲームオーバー *@
+                <h2>@(state.IsGameOver ? "ゲームオーバー" : "ゲーム終了")</h2>
+                <p>@(state.IsGameOver ? "力尽きてしまった..." : "冒険はここまで。お疲れさまでした。")</p>
+                <button class="btn btn-primary" disabled="@_busy" @onclick="BackToMenuAsync">メニューに戻る</button>
+            }
+        </section>
+    </div>
+}
+
+@code {
+    private bool _busy;
+    private string? _error;
+    private int _potionQty = 1;
+
+    protected override void OnInitialized()
+    {
+        Store.OnChange += OnStoreChanged;
+
+        // W2 では Home からの遷移で Store.Current が入っている前提。
+        // 直接アクセス/リロードで状態が無い場合はメニューへ戻す（リロード復帰は W4）。
+        if (Store.Current is null)
+        {
+            Nav.NavigateTo("/");
+        }
+    }
+
+    public void Dispose() => Store.OnChange -= OnStoreChanged;
+
+    private void OnStoreChanged() => InvokeAsync(StateHasChanged);
+
+    private string SessionId => Store.SessionId!;
+
+    // ---- アクション（ExpectedInput 別。文字列リテラルは C# 側に置く） ----
+
+    private Task AttackAsync(string strategy) => RunAsync(() => Api.BattleTurnAsync(SessionId, strategy));
+
+    private Task BuyPotionAsync() =>
+        RunAsync(() => Api.ShopActionAsync(SessionId, new ShopAction(ShopActionType.BuyPotion, quantity: Math.Max(1, _potionQty))));
+
+    private Task BuyWeaponAsync(string name) =>
+        RunAsync(() => Api.ShopActionAsync(SessionId, new ShopAction(ShopActionType.BuyWeapon, name)));
+
+    private Task ExitShopAsync() =>
+        RunAsync(() => Api.ShopActionAsync(SessionId, new ShopAction(ShopActionType.Exit)));
+
+    private Task UsePotionAsync() => RunAsync(() => Api.RestAsync(SessionId, new UseItemAction("Potion", 1)));
+
+    private Task SkipRestAsync() => RunAsync(() => Api.RestAsync(SessionId, null));
+
+    private Task ContinueGameAsync() => RunAsync(() => Api.ContinueAsync(SessionId, GameActionChoice.Continue));
+
+    private Task QuitGameAsync() => RunAsync(() => Api.ContinueAsync(SessionId, GameActionChoice.Quit));
+
+    private async Task RunAsync(Func<Task<GameStateResponse>> step)
+    {
+        if (_busy)
+        {
+            return; // 二重送信防止（送信中は各ボタンも disabled）。
+        }
+
+        _busy = true;
+        _error = null;
+        try
+        {
+            var next = await step();
+            await Store.ApplyAsync(next);
+        }
+        catch (Exception ex)
+        {
+            // W3 で HTTP ステータス別（404/409/400/503）の細かいハンドリングに置き換える。
+            _error = $"通信に失敗しました: {ex.Message}";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task BackToMenuAsync()
+    {
+        await Store.ClearAsync();
+        Nav.NavigateTo("/");
+    }
+}

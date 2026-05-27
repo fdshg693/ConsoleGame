@@ -1,0 +1,20 @@
+@* HP を割合バーで表示する小コンポーネント。色は残量比でざっくり出し分ける（CSS の本格調整は W4）。 *@
+
+<div class="hpbar" title="@Current / @Max">
+    <div class="hpbar-fill @FillClass" style="width:@(Percent)%"></div>
+    <span class="hpbar-text">@Current / @Max</span>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public int Current { get; set; }
+    [Parameter, EditorRequired] public int Max { get; set; }
+
+    private int Percent => Max <= 0 ? 0 : Math.Clamp((int)Math.Round(100.0 * Current / Max), 0, 100);
+
+    private string FillClass => Percent switch
+    {
+        <= 25 => "hpbar-low",
+        <= 50 => "hpbar-mid",
+        _ => "hpbar-high"
+    };
+}

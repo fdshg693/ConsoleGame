@@ -1,0 +1,13 @@
+@* 戦闘中の敵ステータス。戦闘以外では表示されない（呼び出し側が Enemy を null で渡す）。 *@
+
+@if (Enemy is not null)
+{
+    <div class="panel enemy-panel">
+        <div class="panel-title">@Enemy.Name <span class="badge bg-dark">@Enemy.AttackStrategy</span></div>
+        <HpBar Current="Enemy.HP" Max="Enemy.MaxHP" />
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public EnemyState? Enemy { get; set; }
+}
