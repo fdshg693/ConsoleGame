@@ -279,3 +279,128 @@ code {
     font-size: 0.82rem;
     color: #2e7d32;
 }
+
+/* ===== W4 仕上げ（視覚調整・リロード復帰・終了導線）===== */
+
+/* パネルに軽い陰影とヘッダのアクセント。RPG らしい締まりを出す。 */
+.panel {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.panel-title {
+    border-bottom: 1px solid #e3e3e3;
+    padding-bottom: 0.35rem;
+}
+
+/* 戦闘中の敵パネルは赤系で危機感を出す。 */
+.enemy-panel {
+    border-color: #e2b6b0;
+    background: #fdf6f5;
+}
+
+/* HP バーをグラデーション＋内側の陰影で立体的に。 */
+.hpbar {
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+.hpbar-high { background: linear-gradient(180deg, #4cc56b, #2f9450); }
+.hpbar-mid  { background: linear-gradient(180deg, #f0bd2e, #c98f00); }
+.hpbar-low  { background: linear-gradient(180deg, #e1574a, #b3271a); }
+
+.hpbar-text {
+    font-weight: 600;
+    text-shadow: 0 1px 1px rgba(255, 255, 255, 0.6);
+}
+
+/* メインの見出しは少し余白を持たせる。 */
+.play-main h2 {
+    margin-top: 0;
+}
+
+/* 中断した冒険を再開する導線（Home）。 */
+.resume-box {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+    padding: 0.6rem 0.9rem;
+    border: 1px solid #bfe3c6;
+    border-left: 4px solid #2e9c4f;
+    border-radius: 0.4rem;
+    background: #f3fbf5;
+}
+
+/* リロード復帰中のローディング表示（Play）。 */
+.recovering {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    color: #555;
+    padding: 1rem 0;
+}
+
+.spinner {
+    width: 1.1rem;
+    height: 1.1rem;
+    border: 0.18rem solid #cfd6dc;
+    border-top-color: #1b6ec2;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* 終了 / ゲームオーバーの締めパネル。 */
+.ending-panel {
+    border-radius: 0.6rem;
+    padding: 1.25rem 1.5rem;
+    text-align: center;
+    border: 1px solid #d8d8d8;
+    background: #fafafa;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.ending-panel.is-gameover {
+    border-color: #e0b4ae;
+    background: linear-gradient(180deg, #fdf3f2, #fbe9e7);
+}
+
+.ending-panel.is-clear {
+    border-color: #e6d39a;
+    background: linear-gradient(180deg, #fffdf3, #fdf6dd);
+}
+
+.ending-panel h2 {
+    margin-top: 0;
+}
+
+.ending-lead {
+    color: #555;
+    margin-bottom: 1rem;
+}
+
+.ending-summary {
+    list-style: none;
+    padding: 0;
+    margin: 0 auto 1.25rem auto;
+    max-width: 16rem;
+}
+
+.ending-summary li {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.25rem 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    font-size: 0.92rem;
+}
+
+.ending-summary li span:last-child {
+    font-weight: 600;
+}
+
+.ending-panel .action-row {
+    justify-content: center;
+}

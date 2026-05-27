@@ -14,6 +14,14 @@
     <div class="alert alert-danger" role="alert">@_error</div>
 }
 
+@if (_canResume)
+{
+    <div class="resume-box">
+        <span>中断した冒険が残っています。</span>
+        <button class="btn btn-success" @onclick="Resume" disabled="@_busy">冒険を再開</button>
+    </div>
+}
+
 <div class="start-form">
     <label>
         プレイヤー名
@@ -74,9 +82,20 @@
     private string _playerName = string.Empty;
     private bool _busy;
     private string? _error;
+    private bool _canResume;                 // localStorage に sessionId が残っているか
 
     private List<PlayerSaveData>? _saves;   // null=未取得、空=取得したがセーブ無し
     private string _listedName = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // localStorage に進行中の sessionId が残っていれば「再開」導線を出す（実際の復帰は /play 側で実施）。
+        await Store.LoadSessionIdAsync();
+        _canResume = Store.SessionId is not null;
+    }
+
+    /// <summary>中断した冒険へ戻る。/play 側が Store.Current か localStorage から状態を復帰する。</summary>
+    private void Resume() => Nav.NavigateTo("/play");
 
     private async Task StartNewAsync()
     {

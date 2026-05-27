@@ -6,7 +6,14 @@
 
 <PageTitle>プレイ - Console RPG</PageTitle>
 
-@if (_sessionExpired)
+@if (_recovering)
+{
+    <div class="recovering">
+        <span class="spinner"></span>
+        <span>中断した冒険を復帰しています...</span>
+    </div>
+}
+else if (_sessionExpired)
 {
     <div class="alert alert-warning" role="alert">セッションが失効しました。新しい冒険を始めてください。</div>
     <button class="btn btn-primary" @onclick="GoToMenu">メニューへ</button>
@@ -126,10 +133,20 @@ else
             }
             else
             {
-                @* ExpectedInput.None = 終了 / ゲームオーバー *@
-                <h2>@(state.IsGameOver ? "ゲームオーバー" : "ゲーム終了")</h2>
-                <p>@(state.IsGameOver ? "力尽きてしまった..." : "冒険はここまで。お疲れさまでした。")</p>
-                <button class="btn btn-primary" disabled="@_busy" @onclick="BackToMenuAsync">メニューに戻る</button>
+                @* ExpectedInput.None = 終了 / ゲームオーバー（Quit も IsGameOver=true で返る） *@
+                <div class="ending-panel @(state.IsGameOver ? "is-gameover" : "is-clear")">
+                    <h2>@(state.IsGameOver ? "ゲームオーバー" : "ゲーム終了")</h2>
+                    <p class="ending-lead">@(state.IsGameOver ? "力尽きてしまった..." : "冒険はここまで。お疲れさまでした。")</p>
+                    <ul class="ending-summary">
+                        <li><span>到達レベル</span><span>Lv @state.Player.Level</span></li>
+                        <li><span>経験値</span><span>@state.Player.Experience EXP</span></li>
+                        <li><span>所持ゴールド</span><span>@state.Player.Gold Gold</span></li>
+                    </ul>
+                    <div class="action-row">
+                        <button class="btn btn-primary" disabled="@_busy" @onclick="ReplayAsync">同じ名前でもう一度</button>
+                        <button class="btn btn-outline-secondary" disabled="@_busy" @onclick="BackToMenuAsync">メニューに戻る</button>
+                    </div>
+                </div>
             }
         </section>
     </div>
@@ -139,6 +156,7 @@ else
     private bool _busy;
     private string? _error;
     private bool _sessionExpired;
+    private bool _recovering;
     private int _potionQty = 1;
     private string _saveSlot = string.Empty;
     private string? _saveMessage;
@@ -147,15 +165,54 @@ else
     {
         Store.OnChange += OnStoreChanged;
 
-        // Home からの遷移で Store.Current が入っている前提。直接アクセス/リロードで状態が無い場合は
-        // メニューへ戻す（起動時 GET によるリロード復帰は W4）。
+        // Home からの遷移なら Store.Current が入っている。直接アクセス/リロードで揮発した場合は
+        // localStorage の sessionId から GET /sessions/{id} で進行を復帰する（W4 リロード復帰）。
+        // 復帰元が無い / 失効していればメニューへ戻す。
         if (Store.Current is null)
         {
-            Nav.NavigateTo("/");
-            return;
+            _recovering = true; // 最初の描画からスピナーを出す（"セッションがありません" のちらつき防止）。
+            if (!await TryRecoverSessionAsync())
+            {
+                Nav.NavigateTo("/");
+                return;
+            }
         }
 
         await ProbeSaveAvailabilityAsync();
+    }
+
+    /// <summary>
+    /// リロード等で揮発したクライアント状態を localStorage の sessionId から復帰する。
+    /// 復帰できれば true。sessionId が無い／失効（404）なら痕跡をクリアして false（呼び出し側がメニューへ）。
+    /// </summary>
+    private async Task<bool> TryRecoverSessionAsync()
+    {
+        await Store.LoadSessionIdAsync();
+        if (Store.SessionId is null)
+        {
+            return false; // 復帰元が無い。
+        }
+
+        try
+        {
+            var state = await Api.GetSessionAsync(Store.SessionId);
+            await Store.ApplyAsync(state);
+            return true;
+        }
+        catch (GameApiException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        {
+            await Store.ClearAsync(); // 失効 → 痕跡を消してメニューへ誘導。
+            return false;
+        }
+        catch
+        {
+            // ネットワーク不調等は復帰失敗としてメニューへ（安全側）。痕跡は残し再試行余地を残す。
+            return false;
+        }
+        finally
+        {
+            _recovering = false;
+        }
     }
 
     public void Dispose() => Store.OnChange -= OnStoreChanged;
@@ -323,5 +380,36 @@ else
     {
         await Store.ClearAsync();
         Nav.NavigateTo("/");
+    }
+
+    /// <summary>終了/ゲームオーバーから、同じプレイヤー名で新しい冒険を始める（/play に留まる）。</summary>
+    private async Task ReplayAsync()
+    {
+        if (_busy)
+        {
+            return;
+        }
+
+        _busy = true;
+        _error = null;
+        _saveMessage = null;
+        try
+        {
+            var name = Store.Current?.Player.Name;
+            var state = await Api.CreateSessionAsync(string.IsNullOrWhiteSpace(name) ? null : name);
+            await Store.ApplyAsync(state); // 別セッション ID なので累積ログはリセットされる。
+        }
+        catch (GameApiException ex)
+        {
+            await HandleApiErrorAsync(ex);
+        }
+        catch (Exception ex)
+        {
+            _error = $"通信に失敗しました: {ex.Message}";
+        }
+        finally
+        {
+            _busy = false;
+        }
     }
 }
