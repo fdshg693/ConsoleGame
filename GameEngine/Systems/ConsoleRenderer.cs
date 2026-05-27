@@ -23,6 +23,11 @@ namespace GameEngine.Systems
         private const string BoldCyan = "\x1b[1;36m";
         private const string Inverse = "\x1b[7m";
 
+        // Cursor anchoring for in-place menu redraw (no line counting required)
+        private const string SaveCursor = "\x1b[s";
+        private const string RestoreCursor = "\x1b[u";
+        private const string ClearToScreenEnd = "\x1b[0J";
+
         private const int ScreenWidth = 60;
 
         public enum MenuOrientation
@@ -254,7 +259,8 @@ namespace GameEngine.Systems
 
         private static int SelectVertical(string[] options, int currentIndex, bool allowCancel, string[]? descriptions)
         {
-            // Render initial menu
+            // Anchor the cursor at the menu's start, then redraw in place on every keypress.
+            Console.Write(SaveCursor);
             RenderVerticalMenu(options, currentIndex, descriptions);
 
             while (true)
@@ -264,14 +270,12 @@ namespace GameEngine.Systems
                 if (keyInfo.Key == ConsoleKey.UpArrow)
                 {
                     currentIndex = (currentIndex - 1 + options.Length) % options.Length;
-                    ClearLines(options.Length + 1); // +1 for hint line
-                    RenderVerticalMenu(options, currentIndex, descriptions);
+                    RedrawAtAnchor(() => RenderVerticalMenu(options, currentIndex, descriptions));
                 }
                 else if (keyInfo.Key == ConsoleKey.DownArrow)
                 {
                     currentIndex = (currentIndex + 1) % options.Length;
-                    ClearLines(options.Length + 1);
-                    RenderVerticalMenu(options, currentIndex, descriptions);
+                    RedrawAtAnchor(() => RenderVerticalMenu(options, currentIndex, descriptions));
                 }
                 else if (keyInfo.Key == ConsoleKey.Enter)
                 {
@@ -299,6 +303,7 @@ namespace GameEngine.Systems
 
         private static int SelectHorizontal(string[] options, int currentIndex, bool allowCancel)
         {
+            Console.Write(SaveCursor);
             RenderHorizontalMenu(options, currentIndex);
 
             while (true)
@@ -308,14 +313,12 @@ namespace GameEngine.Systems
                 if (keyInfo.Key == ConsoleKey.LeftArrow)
                 {
                     currentIndex = (currentIndex - 1 + options.Length) % options.Length;
-                    ClearLines(1); // horizontal menu is 1 line + hint
-                    RenderHorizontalMenu(options, currentIndex);
+                    RedrawAtAnchor(() => RenderHorizontalMenu(options, currentIndex));
                 }
                 else if (keyInfo.Key == ConsoleKey.RightArrow)
                 {
                     currentIndex = (currentIndex + 1) % options.Length;
-                    ClearLines(1);
-                    RenderHorizontalMenu(options, currentIndex);
+                    RedrawAtAnchor(() => RenderHorizontalMenu(options, currentIndex));
                 }
                 else if (keyInfo.Key == ConsoleKey.Enter)
                 {
@@ -348,16 +351,15 @@ namespace GameEngine.Systems
         // ─────────────────────────────────────────────
 
         /// <summary>
-        /// Clears N lines above the cursor using ANSI sequences.
+        /// Restores the cursor to the saved menu anchor, erases everything from there to
+        /// the end of the screen, then redraws. Because it never counts lines, it is robust
+        /// against line-wrapping and a changing number of option/description/hint lines.
         /// </summary>
-        private static void ClearLines(int count)
+        private static void RedrawAtAnchor(Action render)
         {
-            for (int i = 0; i < count; i++)
-            {
-                Console.Write("\x1b[1A"); // move up
-                Console.Write("\x1b[2K"); // clear line
-            }
-            Console.Write("\r"); // return to start of line
+            Console.Write(RestoreCursor);     // back to the menu's start position
+            Console.Write(ClearToScreenEnd);  // erase the old menu (and anything below it)
+            render();
         }
 
         private static string CenterText(string text, int width)
