@@ -58,7 +58,7 @@
   - `CurrentEventType`、状態 DTO アクセサ `CurrentPlayerState` / `CurrentBattleState` / `CurrentEnemyState` / `CurrentShopState`
   - `Renderer` と描画ヘルパー `ClearScreen` / `RenderMessages` / `WriteLine` / `LogTransition`（すべて `IRenderer` 経由）
   - `SaveGame()`（`IPlayerRepository.SaveAsync` の同期ラッパー。未登録なら「利用不可」を通知して続行）
-  - `DisplayGameOver()` / `ShowPlayerInfo()`
+  - `DisplayGameOver()`（勝敗集計は `EventManager.GameRecord`〔`IGameRecord`〕経由で取得）/ `ShowPlayerInfo()`
 
 ## エントリポイント
 

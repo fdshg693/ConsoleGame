@@ -51,7 +51,7 @@ namespace GameEngine.Tests.Systems
             var config = GameConfigLoader.Instance;
             IGameMessageBus bus = new GameMessageBus();
             player = CreatePlayer(config, bus);
-            var eventManager = new EventManager(player, config, new FakeEnemyFactory(enemyFactory), new Random(FindSeed(config, firstEvent)));
+            var eventManager = new EventManager(player, config, new FakeEnemyFactory(enemyFactory), new GameRecord(), new Random(FindSeed(config, firstEvent)));
             return new GameSystem(player, input, eventManager, new NullRenderer(), bus, playerRepository: null);
         }
 

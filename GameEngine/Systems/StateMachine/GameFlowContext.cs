@@ -104,7 +104,7 @@ namespace GameEngine.Systems.StateMachine
             }, isVictory);
 
             Player.ShowInfo();
-            RenderMessages(GameRecord.GetRecordMessages());
+            RenderMessages(EventManager.GameRecord.GetRecordMessages());
         }
     }
 }

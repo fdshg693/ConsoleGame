@@ -6,6 +6,7 @@
 
 ### HealthManager
 - プレイヤーのHP/DPを管理する
+- コンストラクタ `HealthManager(int baseHP, int baseDP, IEquipmentStatsProvider equipProvider, int? currentHP = null)`: `currentHP` は復元用（null=満タンで開始、指定時は 0〜MaxHP にクリップ）
 - `IEquipmentStatsProvider`（= `InventoryManager`）を注入し、装備ボーナスを加味した `MaxHP` / `TotalDP` を算出
 - `EquipmentChanged` イベントを購読し、装備変更時に `CurrentHP` を `MaxHP` でクリップ
 - `TakeDamage()`: DP軽減後のダメージを適用（最小0）
@@ -21,7 +22,7 @@
 
 ### ExperienceManager
 - 経験値とレベルを管理
-- コンストラクタ `ExperienceManager(int experienceRequiredForLevelUp, IGameMessageBus bus)`: レベルアップ閾値・メッセージバスを引数で注入（閾値0以下は `ArgumentOutOfRangeException`）
+- コンストラクタ `ExperienceManager(int experienceRequiredForLevelUp, IGameMessageBus bus, int initialLevel = 1, int initialExperience = 0)`: レベルアップ閾値・メッセージバスを注入。`initialLevel`/`initialExperience` は復元用（既定は新規プレイヤーの Lv1/経験値0。1未満/負数は丸める）
 - `GainExperience()`: 経験値を加算し、注入された閾値 `experienceRequiredForLevelUp` に到達したらレベルアップ（戻り値 1）
 - 現状レベルアップは1回分のみ処理（超過分の連続レベルアップは未対応）
 
@@ -47,6 +48,12 @@
 - テスト用のインメモリ実装
 - Dictionary ベースで保存・読み込みを模擬
 - MongoDB 不要で単体テストに利用可能
+
+### InMemorySessionRepository（`ISessionRepository` 実装）
+- 進行中セッション（`GameSessionState`）をサーバメモリに保持する既定実装（`AddGameEngine` が Singleton 登録）
+- コンストラクタ `InMemorySessionRepository(TimeSpan? ttl = null, Func<DateTime>? clock = null)`: TTL（既定30分）と現在時刻供給源（テストで失効を決定的に再現）を注入
+- `ConcurrentDictionary` ベースで並行アクセスに対応。`LoadAsync` 時に期限切れエントリを遅延破棄
+- 複数インスタンス/永続再開が必要なら Redis/DB 実装へ差し替え
 
 ## 依存関係
 

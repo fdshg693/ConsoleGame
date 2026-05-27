@@ -16,14 +16,16 @@ namespace GameEngine.Systems.BattleSystem
     {
         private readonly IPlayer _player;
         private readonly IEnemyFactory _enemyFactory;
+        private readonly IGameRecord _gameRecord;
 
         private IEnemy? _enemy;
         private int _turn;
 
-        public BattleManager(IPlayer player, IEnemyFactory enemyFactory)
+        public BattleManager(IPlayer player, IEnemyFactory enemyFactory, IGameRecord gameRecord)
         {
             _player = player ?? throw new ArgumentNullException(nameof(player));
             _enemyFactory = enemyFactory ?? throw new ArgumentNullException(nameof(enemyFactory));
+            _gameRecord = gameRecord ?? throw new ArgumentNullException(nameof(gameRecord));
         }
 
         /// <summary>進行中の敵（戦闘終了後は null）。</summary>
@@ -109,8 +111,8 @@ namespace GameEngine.Systems.BattleSystem
             if (!enemy.IsAlive)
             {
                 messages.Add(GameStateMapper.CreateMessage($"{enemy.Name} has been defeated!", MessageType.Success));
-                GameRecord.RecordWin();
-                messages.AddRange(GameRecord.GetRecordMessages());
+                _gameRecord.RecordWin();
+                messages.AddRange(_gameRecord.GetRecordMessages());
                 _player.DefeatEnemy(enemy);
 
                 var victory = new BattleStepResult(
@@ -133,8 +135,8 @@ namespace GameEngine.Systems.BattleSystem
             if (!_player.IsAlive)
             {
                 messages.Add(GameStateMapper.CreateMessage($"{_player.Name} has fallen...", MessageType.Error));
-                GameRecord.RecordLoss();
-                messages.AddRange(GameRecord.GetRecordMessages());
+                _gameRecord.RecordLoss();
+                messages.AddRange(_gameRecord.GetRecordMessages());
 
                 var defeat = new BattleStepResult(
                     BattleOutcome.Defeat,

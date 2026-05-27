@@ -1,10 +1,8 @@
 using CliRpgGame.UI;
 using GameEngine.Configuration;
-using GameEngine.Constants;
 using GameEngine.DependencyInjection;
 using GameEngine.Interfaces;
 using GameEngine.Manager;
-using GameEngine.Models;
 using GameEngine.Systems;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -52,12 +50,10 @@ namespace CliRpgGame
                         c.Items.Potion.HealAmount);
                 });
 
-                // プレイヤー（名前は実行時入力。将来はセッション単位で生成する）
+                // プレイヤー（名前は実行時入力。将来はセッション単位で生成する）。
+                // 生成は AddGameEngine が登録する IPlayerFactory に委譲する（新規/復元の経路を一元化）。
                 services.AddSingleton<IPlayer>(sp =>
-                    CreatePlayer(
-                        playerName,
-                        sp.GetRequiredService<GameConfig>(),
-                        sp.GetRequiredService<IGameMessageBus>()));
+                    sp.GetRequiredService<IPlayerFactory>().CreateNew(playerName));
 
                 // セーブ用リポジトリ。MongoDB が利用できない場合は登録せず、
                 // GameSystem は IPlayerRepository? の既定値（null）でセーブ無効のまま続行する。
@@ -102,27 +98,6 @@ namespace CliRpgGame
                 Console.WriteLine("ゲームはセーブ機能なしで続行されます。");
                 return null;
             }
-        }
-
-        /// <summary>
-        /// プレイヤーオブジェクトを作成する
-        /// </summary>
-        private static IPlayer CreatePlayer(string name, GameConfig config, IGameMessageBus bus)
-        {
-            var experienceManager = new ExperienceManager(config.LevelUp.ExperienceRequired, bus);
-            var inventoryManager = new InventoryManager(
-                config.Player.InitialGold,
-                config.Player.InitialPotions,
-                config.Items.Potion.Price,
-                bus);
-
-            return new Player(
-                name,
-                config,
-                AttackStrategy.GetAttackStrategy(AttackStrategyNames.Default),
-                experienceManager,
-                inventoryManager,
-                bus);
         }
     }
 }

@@ -7,7 +7,8 @@
 ### ドメインモデル
 
 - **Player.cs** - プレイヤーエンティティ（`IPlayer` 実装）
-  - コンストラクタ: `Player(string name, GameConfig config, IAttackStrategy attackStrategy, ExperienceManager experienceManager, InventoryManager inventoryManager, IGameMessageBus bus)`
+  - コンストラクタ: `Player(string name, GameConfig config, IAttackStrategy attackStrategy, ExperienceManager experienceManager, InventoryManager inventoryManager, IGameMessageBus bus, PlayerRestoreState? restoreState = null)`
+  - `restoreState` は復元用（任意）。null=設定既定値で新規生成、指定時は基礎 AP/HP/DP・現在HP を復元値で構築（Lv/経験値/ゴールド/ポーション/装備は注入する各 Manager 側で復元）
   - `bus`（`IGameMessageBus`）はメッセージ発行に注入され、内部生成する `RewardManager` にも伝播
   - 注入された `GameConfig` から値を導出:
     - `BaseAP` ← `config.Player.BaseAP`
@@ -23,6 +24,7 @@
   - `YieldGold` はコンストラクタ引数で受け取る（`EnemyFactory` が算出）
   - `IAttackStrategy` を保持、`ChangeAttackStrategy()` で戦闘中に切替可能
 - **Weapon.cs** - 武器の値オブジェクト（`IWeapon` 実装、読み取り専用）
+- **PlayerRestoreState.cs** - セーブデータから `Player` を復元する際の基礎ステータス（`BaseAP`/`BaseHP`/`BaseDP`/`CurrentHP`、いずれも武器ボーナスを除いた基礎値）。`PlayerFactory.Restore` が生成し `Player` コンストラクタへ渡す
 
 ### 戦略パターン
 

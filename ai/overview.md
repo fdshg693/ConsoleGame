@@ -25,14 +25,17 @@ Program -> ServiceCollection.AddGameEngine()+host registrations -> ServiceProvid
 - **Factory**: `EnemyFactory` はインスタンスクラスで `IEnemyFactory` を実装し、`AddGameEngine` が Singleton 登録して EventManager → BattleManager へDI注入する（静的な起動時ローダーではない）。コンストラクタで `EnemyConfig` + `IGameMessageBus` + `Random` を受け取り、`AppContext.BaseDirectory` フォールバック付きのパスで自身の YAML specs を読み込む。`WeaponFactory` centralizes weapon creation.
 - **Managers**: `HealthManager` uses `IEquipmentStatsProvider` from inventory to compute HP/AP/DP; `ExperienceManager` drives level growth. ドメインクラス（`Player`・各 Manager・`Enemy`）は設定を静的な `GameConstants` ラッパー経由ではなく `GameConfig`/サブ設定値のコンストラクタ注入で受け取る（`GameConstants` は固定の `AttackDamage` const のみを保持）。
 - **Repository**: `IPlayerRepository` abstracts persistence. `MongoPlayerRepository`（本番）と `InMemoryPlayerRepository`（テスト用）を切り替え可能。`GameSystem` にコンストラクタ注入される（DI 未登録時は `IPlayerRepository?` の既定値 null = セーブ無効）。
+- **Player factory**: `IPlayerFactory`（`PlayerFactory`）が新規生成（`CreateNew`）とセーブデータ復元（`Restore(PlayerSaveData)`）を集約。復元は HP/レベル/経験値/ゴールド/ポーション/装備武器/攻撃戦略/基礎ステータスを再構築する（`AddGameEngine` が Singleton 登録）。
+- **Game record**: `IGameRecord`（`GameRecord`）は勝敗記録のインスタンスサービス（静的状態を排除）。`AddGameEngine` が Singleton 登録し、`BattleManager` が記録・`GameSystem`/`GameFlowContext` が参照する。
+- **Session layer**: 進行中ゲームの揮発状態を `GameSessionState`（戦闘途中の敵HP・ターン・フェーズ含む）で表し、`ISessionRepository`（既定 `InMemorySessionRepository` = インメモリ + TTL）で保持・復元する。`GameSystem.CaptureSession(sessionId)` がスナップショットを生成。確定セーブ（`IPlayerRepository`）とは責務分離（セーブ＝確定スナップショット、セッション＝進行中の揮発状態）。
 - **Messaging**: `GameMessageBus`（Models）はインスタンス化され `IGameMessageBus` を実装。`AddGameEngine` が `IGameMessageBus`→`GameMessageBus` を Singleton 登録し、発行側（`Player`・各 Manager・`Enemy`）と購読側（`GameSystem` → `IRenderer`）が同一インスタンスを共有する。`InventoryManager`/`ExperienceManager`/`Player`/`EnemyFactory` 等はコンストラクタで `IGameMessageBus` を受け取る。
-- **DI**: `AddGameEngine(IServiceCollection)` がコア依存（`GameConfig` Singleton / `IGameMessageBus` / `IEnemyFactory` / `EventManager` / `GameSystem`）の登録を集約。`IGameInput`・`IRenderer`（描画。ホスト責務）・`IPlayer`（実行時名）・`IPlayerRepository`（任意）は各ホストが登録する。`Microsoft.Extensions.DependencyInjection` 系を使用。
+- **DI**: `AddGameEngine(IServiceCollection)` がコア依存（`GameConfig` Singleton / `IGameMessageBus` / `IEnemyFactory` / `IGameRecord` / `IPlayerFactory` / `ISessionRepository` / `EventManager` / `GameSystem`）の登録を集約。`IGameInput`・`IRenderer`（描画。ホスト責務）・`IPlayer`（実行時名。`IPlayerFactory` で生成）・`IPlayerRepository`（任意）は各ホストが登録する。`Microsoft.Extensions.DependencyInjection` 系を使用。
 
 ## Configuration & External Dependencies
 
 - **YAML**: [./../GameEngine/enemy-specs.yml](./../GameEngine/enemy-specs.yml) and [./../GameEngine/weapon-specs.yml](./../GameEngine/weapon-specs.yml). Specs are deserialized via YamlDotNet (see [./../GameEngine/Factory/EnemyFactory.cs](./../GameEngine/Factory/EnemyFactory.cs)).
 - **Save system**: MongoDB via Docker Compose (see [docker-compose.yml](docker-compose.yml) and [docs/mongo.md](docs/mongo.md)); persistence is abstracted via `IPlayerRepository` ([./../GameEngine/Interfaces/IPlayerRepository.cs](./../GameEngine/Interfaces/IPlayerRepository.cs)) with `MongoPlayerRepository` ([./../GameEngine/Manager/MongoPlayerRepository.cs](./../GameEngine/Manager/MongoPlayerRepository.cs)) as the default implementation. BSON mapping is defined in `MongoPlayerRepository` via `BsonClassMap` (not on `PlayerSaveData` itself).
-- **DTOs**: UI state DTOs (`GameState`, `PlayerState`, etc.), command DTOs (`PlayerAction` hierarchy), and persistence DTOs (`PlayerSaveData`) are in [./../GameEngine/DTOs](./../GameEngine/DTOs). Mappers are in [./../GameEngine/Mappers](./../GameEngine/Mappers).
+- **DTOs**: UI state DTOs (`GameState`, `PlayerState`, etc.), command DTOs (`PlayerAction` hierarchy), persistence DTO (`PlayerSaveData`), and session snapshot DTO (`GameSessionState`) are in [./../GameEngine/DTOs](./../GameEngine/DTOs). Mappers are in [./../GameEngine/Mappers](./../GameEngine/Mappers).
 
 ## Developer Workflows
 

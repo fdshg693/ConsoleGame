@@ -43,13 +43,20 @@ namespace GameEngine.Models
         public int TotalExperience => _experience.TotalExperience;
         public string EquippedWeaponName => _inventory.Weapon.Name;
 
+        /// <param name="restoreState">
+        /// セーブデータからの復元時に基礎ステータス（BaseAP/BaseHP/BaseDP/CurrentHP）を指定する。
+        /// null（既定）なら <paramref name="config"/> の初期値で新規プレイヤーとして生成する。
+        /// 装備武器・ゴールド・ポーション・レベル・経験値の復元は、注入する
+        /// <paramref name="inventoryManager"/> / <paramref name="experienceManager"/> 側で行う。
+        /// </param>
         public Player(
             string name,
             GameConfig config,
             IAttackStrategy attackStrategy,
             ExperienceManager experienceManager,
             InventoryManager inventoryManager,
-            IGameMessageBus bus)
+            IGameMessageBus bus,
+            PlayerRestoreState? restoreState = null)
         {
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("Player name cannot be null or empty", nameof(name));
@@ -57,15 +64,16 @@ namespace GameEngine.Models
                 throw new ArgumentNullException(nameof(config));
 
             Name = name;
-            BaseAP = config.Player.BaseAP;
+            BaseAP = restoreState?.BaseAP ?? config.Player.BaseAP;
             _potionHealAmount = config.Items.Potion.HealAmount;
             _bus = bus ?? throw new ArgumentNullException(nameof(bus));
             _experience = experienceManager ?? throw new ArgumentNullException(nameof(experienceManager));
             _inventory = inventoryManager ?? throw new ArgumentNullException(nameof(inventoryManager));
             _health = new HealthManager(
-                baseHP: config.Player.InitialHP,
-                baseDP: config.Player.BaseDP,
-                equipProvider: _inventory);
+                baseHP: restoreState?.BaseHP ?? config.Player.InitialHP,
+                baseDP: restoreState?.BaseDP ?? config.Player.BaseDP,
+                equipProvider: _inventory,
+                currentHP: restoreState?.CurrentHP);
 
             // 戦闘マネージャーの初期化
             _combat = new CombatManager(

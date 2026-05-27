@@ -1,6 +1,7 @@
 using GameEngine.Configuration;
 using GameEngine.Factory;
 using GameEngine.Interfaces;
+using GameEngine.Manager;
 using GameEngine.Models;
 using GameEngine.Systems;
 using Microsoft.Extensions.DependencyInjection;
@@ -39,6 +40,18 @@ namespace GameEngine.DependencyInjection
                 new EnemyFactory(
                     sp.GetRequiredService<GameConfig>().Enemy,
                     sp.GetRequiredService<IGameMessageBus>()));
+
+            // 勝敗記録（インスタンスベース）。静的状態を排除し並行リクエストでの混線を防ぐ。
+            // 発行側（BattleManager 経由）と表示/捕捉側（GameSystem）が同一インスタンスを共有するよう Singleton 登録する。
+            services.AddSingleton<IGameRecord, GameRecord>();
+
+            // プレイヤー生成/復元ファクトリ（GameConfig + IGameMessageBus 由来）。
+            // 新規生成（CreateNew）とセーブデータからの復元（Restore）を集約する。
+            services.AddSingleton<IPlayerFactory, PlayerFactory>();
+
+            // 進行中セッションのストア。まずはインメモリ + TTL を既定とする
+            // （外部依存なし）。スケール要件が出たらホスト側で Redis/DB 実装へ差し替える。
+            services.AddSingleton<ISessionRepository>(_ => new InMemorySessionRepository());
 
             // 進行制御。IPlayer / IGameInput はホストが登録するため、
             // 解決時（ホストの登録完了後）に依存が満たされる。

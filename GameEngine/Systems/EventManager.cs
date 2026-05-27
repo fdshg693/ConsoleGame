@@ -17,6 +17,7 @@ namespace GameEngine.Systems
         private readonly IPlayer _player;
         private readonly GameConfig _config;
         private readonly BattleManager _battleManager;
+        private readonly IGameRecord _gameRecord;
         private readonly Random _random;
         private readonly int _potionPrice;
 
@@ -24,17 +25,21 @@ namespace GameEngine.Systems
         private ShopState? _shopState;
         private BattleStepResult? _battleResult;
 
-        public EventManager(IPlayer player, GameConfig config, IEnemyFactory enemyFactory, Random? random = null)
+        public EventManager(IPlayer player, GameConfig config, IEnemyFactory enemyFactory, IGameRecord gameRecord, Random? random = null)
         {
             _player = player ?? throw new ArgumentNullException(nameof(player));
             _config = config ?? throw new ArgumentNullException(nameof(config));
             if (enemyFactory == null)
                 throw new ArgumentNullException(nameof(enemyFactory));
+            _gameRecord = gameRecord ?? throw new ArgumentNullException(nameof(gameRecord));
 
-            _battleManager = new BattleManager(_player, enemyFactory);
+            _battleManager = new BattleManager(_player, enemyFactory, _gameRecord);
             _random = random ?? new Random();
             _potionPrice = _config.Items.Potion.Price;
         }
+
+        /// <summary>勝敗記録。ゲームオーバー表示やセッション捕捉のために公開する。</summary>
+        public IGameRecord GameRecord => _gameRecord;
 
         /// <summary>直近に決定したエンカウント種別。</summary>
         public GameEventType CurrentEventType => _currentType;

@@ -42,6 +42,25 @@ namespace GameEngine.Tests.DependencyInjection
         }
 
         [Fact]
+        public void AddGameEngine_RegistersPhase3Services_Resolvable()
+        {
+            using var provider = new ServiceCollection().AddGameEngine().BuildServiceProvider();
+
+            // フェーズ3で追加したコアサービスが解決できること
+            Assert.NotNull(provider.GetRequiredService<IPlayerFactory>());
+            Assert.NotNull(provider.GetRequiredService<ISessionRepository>());
+
+            // 勝敗記録は Singleton（同一インスタンスを共有）
+            var first = provider.GetRequiredService<IGameRecord>();
+            var second = provider.GetRequiredService<IGameRecord>();
+            Assert.Same(first, second);
+
+            // IPlayerFactory で新規プレイヤーが生成できること
+            var player = provider.GetRequiredService<IPlayerFactory>().CreateNew("Tester");
+            Assert.Equal("Tester", player.Name);
+        }
+
+        [Fact]
         public void Composition_WithoutRepository_ResolvesGameSystem()
         {
             // リポジトリ未登録（MongoDB 不可相当）でも、GameSystem の

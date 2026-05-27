@@ -11,7 +11,9 @@ namespace GameEngine.Manager
         public int TotalExperience { get; private set; } = 0;
         public int Level { get; private set; } = 1;
 
-        public ExperienceManager(int experienceRequiredForLevelUp, IGameMessageBus bus)
+        /// <param name="initialLevel">復元時の開始レベル（既定 1）。1 未満は 1 に丸める。</param>
+        /// <param name="initialExperience">復元時の累積経験値（既定 0）。負数は 0 に丸める。</param>
+        public ExperienceManager(int experienceRequiredForLevelUp, IGameMessageBus bus, int initialLevel = 1, int initialExperience = 0)
         {
             if (experienceRequiredForLevelUp <= 0)
                 throw new ArgumentOutOfRangeException(
@@ -20,6 +22,8 @@ namespace GameEngine.Manager
 
             _experienceRequiredForLevelUp = experienceRequiredForLevelUp;
             _bus = bus ?? throw new ArgumentNullException(nameof(bus));
+            Level = initialLevel < 1 ? 1 : initialLevel;
+            TotalExperience = initialExperience < 0 ? 0 : initialExperience;
         }
 
         /// <summary>

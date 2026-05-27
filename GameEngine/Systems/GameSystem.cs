@@ -56,6 +56,44 @@ namespace GameEngine.Systems
         public ShopState? CurrentShopState => _eventManager.CurrentShopState;
 
         /// <summary>
+        /// 現在の進行状態を <see cref="GameSessionState"/> としてスナップショット化する。
+        /// 戦闘途中（敵の現在 HP・ターン数・フェーズ）を含む揮発状態を捕捉し、
+        /// <see cref="ISessionRepository"/> 経由でリクエスト間に保持・復元するための入口。
+        /// プレイヤーの復元は <see cref="IPlayerFactory.Restore"/>、勝敗記録の復元は <see cref="IGameRecord.Restore"/> を用いる。
+        /// </summary>
+        public GameSessionState CaptureSession(string sessionId)
+        {
+            if (string.IsNullOrWhiteSpace(sessionId))
+                throw new ArgumentException("SessionId is required", nameof(sessionId));
+
+            return new GameSessionState
+            {
+                SessionId = sessionId,
+                PlayerName = _player.Name,
+                Phase = MapPhase(CurrentStateName),
+                CurrentStateName = CurrentStateName,
+                ExpectedInput = ExpectedInput,
+                Player = _player.GetSaveData(),
+                Enemy = CurrentEnemyState,
+                Battle = CurrentBattleState,
+                Shop = CurrentShopState,
+                TotalWins = _eventManager.GameRecord.TotalWins,
+                TotalLosses = _eventManager.GameRecord.TotalLosses,
+                SavedAt = DateTime.UtcNow
+            };
+        }
+
+        /// <summary>状態機械のステート名を UI フェーズ（<see cref="GamePhase"/>）へ写像する。</summary>
+        private static GamePhase MapPhase(string? stateName) => stateName switch
+        {
+            "Start" or "Explore" or "PostEncounter" => GamePhase.Exploration,
+            "Battle" => GamePhase.Battle,
+            "Shop" => GamePhase.Shop,
+            "Rest" => GamePhase.Rest,
+            _ => GamePhase.GameOver, // "GameOver" / null（終了後）
+        };
+
+        /// <summary>
         /// 状態機械を生成して開始し、最初に入力を要する状態（または終端）まで前進させる。
         /// </summary>
         public void Start()

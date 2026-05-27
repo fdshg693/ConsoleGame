@@ -24,7 +24,7 @@
    - `services.AddGameEngine()` — コア依存（`GameConfig`/`IGameMessageBus`/`IEnemyFactory`/`EventManager`/`GameSystem`）を登録
    - `ConsoleRenderer` を Singleton 登録し、`IRenderer` → 同一インスタンスへ橋渡し（`GameSystem`/`EventManager` と `ConsoleGameInput` が単一の `ConsoleRenderer` を共有）
    - `IGameInput` → `new ConsoleGameInput(ConsoleRenderer, potionPrice, potionHealAmount)`（価格・回復量は `GameConfig` から解決）
-   - `IPlayer` → `CreatePlayer(playerName, config, IGameMessageBus)` を登録（`bus` を `ExperienceManager`/`InventoryManager`/`Player` に注入して組み立て）
+   - `IPlayer` → `AddGameEngine` が登録する `IPlayerFactory.CreateNew(playerName)` で生成（プレイヤー組み立ては `PlayerFactory` に集約）
    - `IPlayerRepository` → `CreatePlayerRepository(config)`。MongoDB 不可なら**登録せず**、`GameSystem` は `IPlayerRepository?` 既定値 null（セーブ無効）で続行
 4. `ServiceProvider` から `GameSystem`（IDisposable）を解決し `RunGameLoop()` を実行
    - `RunGameLoop()` はコアのステップ駆動 API に対する**薄い駆動ループ**: `Start()` 後 `while(IsRunning)` で `GameSystem.ExpectedInput` を読み、対応する `IGameInput.Select*` から行動を取得して `PlayerInput` に包み `Step()` に渡すだけ。進行順序の制御はコアの State 群が持つ

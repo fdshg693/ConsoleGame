@@ -32,9 +32,17 @@ UI連携用 DTO、コマンドパターン、永続化 DTO を定義。namespace
 
 ### 永続化 DTO
 
-- **PlayerSaveData.cs** - プレイヤーデータ保存用 DTO
+- **PlayerSaveData.cs** - プレイヤーデータ保存用 DTO（確定セーブ＝プレイヤーステータスの確定スナップショット）
   - MongoDB 固有の属性（BSON）は含まない。マッピングは `MongoPlayerRepository` 側の `BsonClassMap` で定義
   - `WeaponData` サブクラスで装備武器情報を保持
+
+### セッション DTO
+
+- **GameSessionState.cs** - 進行中ゲームの完全な揮発状態（セッション）スナップショット
+  - `SessionId` / `PlayerName` / `Phase`（`GamePhase`）/ `CurrentStateName` / `ExpectedInput`
+  - `Player`（`PlayerSaveData`）+ 戦闘中の `Enemy`（現在HP）/ `Battle`（ターン数）/ ショップ中の `Shop` / 勝敗数（`TotalWins`/`TotalLosses`）
+  - 確定セーブ（`PlayerSaveData`）と分離: セーブ＝確定スナップショット、セッション＝戦闘途中を含む進行中の揮発状態
+  - `GameSystem.CaptureSession` で生成し、`ISessionRepository` でリクエスト間に保持・復元する
 
 ## 設計上の注意点
 

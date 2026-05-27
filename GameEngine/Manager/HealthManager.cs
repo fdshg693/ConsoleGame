@@ -19,7 +19,11 @@ namespace GameEngine.Manager
 
         public bool IsAlive => CurrentHP > 0;
 
-        public HealthManager(int baseHP, int baseDP, IEquipmentStatsProvider equipProvider)
+        /// <param name="currentHP">
+        /// 復元時の現在 HP。null（既定）なら満タン（<see cref="MaxHP"/>）で開始する。
+        /// 指定時は 0〜MaxHP の範囲にクリップする。
+        /// </param>
+        public HealthManager(int baseHP, int baseDP, IEquipmentStatsProvider equipProvider, int? currentHP = null)
         {
             BaseHP = baseHP;
             BaseDP = baseDP;
@@ -32,7 +36,9 @@ namespace GameEngine.Manager
                     CurrentHP = MaxHP;
             };
 
-            CurrentHP = MaxHP;
+            CurrentHP = currentHP.HasValue
+                ? Math.Clamp(currentHP.Value, 0, MaxHP)
+                : MaxHP;
         }
 
         // ダメージ処理

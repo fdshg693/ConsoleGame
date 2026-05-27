@@ -32,6 +32,7 @@ dotnet test --filter "FullyQualifiedName~GameEngine.Tests.Models"
 - **ServiceCollectionExtensionsTests.cs** -- `AddGameEngine` の DI 合成の回帰テスト
   - `GameConfig` が Singleton 登録されること（同一インスタンス）
   - `IEnemyFactory` が解決でき、敵キーが存在すること
+  - フェーズ3で追加した `IPlayerFactory` / `ISessionRepository` が解決でき、`IGameRecord` が Singleton（同一インスタンス）であること
   - ホスト合成を再現（スタブ `IGameInput` + `IRenderer`(NullRenderer) + 固定名 `IPlayer`）し、リポジトリ有無の双方で `GameSystem` が解決できること
   - `CreatePlayer` は `IGameMessageBus` を解決して `ExperienceManager`/`InventoryManager`/`Player` に注入
   - 内部スタブ `StubGameInput` は `SelectGameAction()` で `GameActionChoice.Continue` を返す
@@ -43,6 +44,9 @@ dotnet test --filter "FullyQualifiedName~GameEngine.Tests.Models"
   - `GetAvailableEnemyKeys()` が既知の敵キー（例: "Goblin"）を含むこと
   - `Create("Goblin")` が名前・MaxHP・AttackStrategy の正しい Enemy を返すこと
   - 実際の `enemy-specs.yml` を読み込むため、YAML の変更がテストに影響する
+- **PlayerFactoryTests.cs** -- `PlayerFactory`（`IPlayerFactory`）の新規生成/復元を検証
+  - `CreateNew` が設定既定値（Lv1・初期ゴールド/ポーション）で生成すること
+  - `Restore(PlayerSaveData)` が HP/AP/DP（武器ボーナス込み）・Lv・経験値・ゴールド/ポーション・装備を復元し、`GetSaveData` で往復一致すること
 
 ### Manager/
 
@@ -53,6 +57,14 @@ dotnet test --filter "FullyQualifiedName~GameEngine.Tests.Models"
   - `InventoryManager(initialGold, initialPotions, potionPrice, IGameMessageBus)` でインスタンス化
   - `EquipWeapon()` で武器を装備すると `HealthManager` の `MaxHP`・`TotalDP` が更新されること
   - `InventoryManager` 自体が `IEquipmentStatsProvider` として機能することの実証
+- **InMemorySessionRepositoryTests.cs** -- `ISessionRepository` の保存/復元/削除と TTL 失効（注入クロックで決定的に再現）を検証
+
+### Systems/
+
+- **StepFlowTests.cs** -- ステップ駆動エンジン（`GameSystem` + ステートマシン）の戦闘/ショップ/休憩/続行の遷移を検証（`EventManager` 構築時に `IGameRecord` を注入）
+- **BattleManagerTests.cs** -- `BattleManager`（`IGameRecord` 注入）の勝敗・ダメージ・メッセージを検証
+- **GameRecordTests.cs** -- `GameRecord`（`IGameRecord`）の勝敗加算・インスタンス独立性・`Restore`・勝率メッセージを検証
+- **SessionTests.cs** -- `GameSystem.CaptureSession` が戦闘途中（敵HP・ターン・フェーズ）を捕捉し、`ISessionRepository` 往復 + `IPlayerFactory.Restore`/`IGameRecord.Restore` でプレイヤー・勝敗記録を再構築できることを検証
 
 ### Models/
 

@@ -28,8 +28,11 @@ GameEngine.Console/Program.cs (合成起点 / Composition Root)
   - `GameConfig` — Singleton（`GameConfigLoader.Instance` を1度だけ解決。直アクセスはこの合成に限定）
   - `IGameMessageBus` → `GameMessageBus`（Singleton。発行側（Player/Manager/Enemy）と購読側（`GameSystem` → `IRenderer`）が同一インスタンスを共有）
   - `IEnemyFactory` → `EnemyFactory`（Singleton, `GameConfig.Enemy` 由来。生成時に `IGameMessageBus` を渡す）
-  - `EventManager` / `GameSystem` — Singleton（進行制御。`EventManager` は描画・入力に非依存で `IPlayer`/`GameConfig`/`IEnemyFactory`〔＋任意の `Random?`〕から解決。`GameSystem` の `IPlayer`/`IGameInput`/`IRenderer` はホスト登録後に解決される）
-- 登録しない（ホスト責務）もの: `IGameInput`（UI 入力実装）/ `IRenderer`（描画実装。コンソールは ANSI、API はバッファ/DTO 蓄積）/ `IPlayer`（実行時プレイヤー名）/ `IPlayerRepository`（任意。未登録なら `GameSystem` は `IPlayerRepository?` 既定値 null でセーブ無効）
+  - `IGameRecord` → `GameRecord`（Singleton。勝敗記録。`BattleManager` が記録、`GameSystem`/`GameFlowContext` が参照）
+  - `IPlayerFactory` → `PlayerFactory`（Singleton。新規生成 `CreateNew` / セーブ復元 `Restore`）
+  - `ISessionRepository` → `InMemorySessionRepository`（Singleton。進行中セッションのインメモリ + TTL ストア。ホストが Redis/DB 実装へ差し替え可）
+  - `EventManager` / `GameSystem` — Singleton（進行制御。`EventManager` は描画・入力に非依存で `IPlayer`/`GameConfig`/`IEnemyFactory`/`IGameRecord`〔＋任意の `Random?`〕から解決。`GameSystem` の `IPlayer`/`IGameInput`/`IRenderer` はホスト登録後に解決される）
+- 登録しない（ホスト責務）もの: `IGameInput`（UI 入力実装）/ `IRenderer`（描画実装。コンソールは ANSI、API はバッファ/DTO 蓄積）/ `IPlayer`（実行時プレイヤー名。`IPlayerFactory` で生成）/ `IPlayerRepository`（任意。未登録なら `GameSystem` は `IPlayerRepository?` 既定値 null でセーブ無効）
 - 依存パッケージ: `Microsoft.Extensions.DependencyInjection.Abstractions`
 
 ## YAML 設定ファイル

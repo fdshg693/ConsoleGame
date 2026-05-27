@@ -4,6 +4,7 @@ using GameEngine.DTOs;
 using GameEngine.Interfaces;
 using GameEngine.Manager;
 using GameEngine.Models;
+using GameEngine.Systems;
 using GameEngine.Systems.BattleSystem;
 using GameEngine.Tests.TestDoubles;
 using Xunit;
@@ -32,7 +33,7 @@ namespace GameEngine.Tests.Systems
         public void StartBattle_ReturnsInProgressWithEnemy()
         {
             var player = CreatePlayer();
-            var bm = new BattleManager(player, new FakeEnemyFactory(() => new TestEnemy("Slime", 30, 0, DefaultStrategy)));
+            var bm = new BattleManager(player, new FakeEnemyFactory(() => new TestEnemy("Slime", 30, 0, DefaultStrategy)), new GameRecord());
 
             var result = bm.StartBattle();
 
@@ -49,7 +50,7 @@ namespace GameEngine.Tests.Systems
         public void SubmitPlayerTurn_DealsDamage_StaysInProgress()
         {
             var player = CreatePlayer();
-            var bm = new BattleManager(player, new FakeEnemyFactory(() => new TestEnemy("Slime", 30, 0, DefaultStrategy)));
+            var bm = new BattleManager(player, new FakeEnemyFactory(() => new TestEnemy("Slime", 30, 0, DefaultStrategy)), new GameRecord());
             bm.StartBattle();
 
             var result = bm.SubmitPlayerTurn(new AttackAction(AttackStrategyNames.Default));
@@ -65,7 +66,7 @@ namespace GameEngine.Tests.Systems
         public void SubmitPlayerTurn_KillsWeakEnemy_Victory()
         {
             var player = CreatePlayer();
-            var bm = new BattleManager(player, new FakeEnemyFactory(() => new TestEnemy("Weakling", 1, 0, DefaultStrategy)));
+            var bm = new BattleManager(player, new FakeEnemyFactory(() => new TestEnemy("Weakling", 1, 0, DefaultStrategy)), new GameRecord());
             bm.StartBattle();
 
             var result = bm.SubmitPlayerTurn(new AttackAction(AttackStrategyNames.Default));
@@ -82,7 +83,7 @@ namespace GameEngine.Tests.Systems
         public void SubmitPlayerTurn_StrongEnemy_Defeat()
         {
             var player = CreatePlayer();
-            var bm = new BattleManager(player, new FakeEnemyFactory(() => new TestEnemy("Boss", 100000, 999999, DefaultStrategy)));
+            var bm = new BattleManager(player, new FakeEnemyFactory(() => new TestEnemy("Boss", 100000, 999999, DefaultStrategy)), new GameRecord());
             bm.StartBattle();
 
             var result = bm.SubmitPlayerTurn(new AttackAction(AttackStrategyNames.Default));
@@ -98,7 +99,7 @@ namespace GameEngine.Tests.Systems
         public void SubmitPlayerTurn_WithoutActiveBattle_ReturnsError()
         {
             var player = CreatePlayer();
-            var bm = new BattleManager(player, new FakeEnemyFactory(() => new TestEnemy("Slime", 30, 0, DefaultStrategy)));
+            var bm = new BattleManager(player, new FakeEnemyFactory(() => new TestEnemy("Slime", 30, 0, DefaultStrategy)), new GameRecord());
 
             var result = bm.SubmitPlayerTurn(new AttackAction(AttackStrategyNames.Default));
 

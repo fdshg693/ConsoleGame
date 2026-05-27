@@ -76,6 +76,22 @@ ICharacter
 - `GetAvailableEnemyKeys()` - 利用可能な敵キー一覧を取得
 - 実装: `Factory/EnemyFactory`（`GameEngine.Factory`）
 
+### IPlayerFactory
+- プレイヤーの生成/復元を抽象化（合成起点の手組みを集約）
+- `CreateNew(string name)` - 設定の初期値から新規プレイヤーを生成
+- `Restore(PlayerSaveData)` - セーブデータから HP・レベル・経験値・ゴールド・ポーション・装備武器・攻撃戦略・基礎ステータスを完全復元
+- 実装: `Factory/PlayerFactory`（`GameConfig` + `IGameMessageBus` を注入）。`AddGameEngine` が Singleton 登録
+
+### IGameRecord
+- 勝敗記録の抽象（インスタンスベース）。静的状態は並行リクエストで混線するため DI シングルトン化
+- `TotalWins` / `TotalLosses` / `TotalGames` / `RecordWin()` / `RecordLoss()` / `Restore(wins, losses)`（復元）/ `GetRecordMessages()`
+- 実装: `Systems/GameRecord`。`BattleManager`（勝敗記録）と `GameSystem.CaptureSession` / `GameFlowContext.DisplayGameOver`（参照）が同一インスタンスを共有
+
+### ISessionRepository
+- 進行中セッション（`GameSessionState`）の保存/復元を抽象化。確定セーブの `IPlayerRepository` とは責務分離（セーブ＝確定スナップショット、セッション＝進行中の揮発状態）
+- `SaveAsync(GameSessionState)` / `LoadAsync(sessionId)` / `DeleteAsync(sessionId)`（すべて async）
+- 既定実装: `Manager/InMemorySessionRepository`（インメモリ + TTL）。スケール時は Redis/DB 実装へ差し替え
+
 ## 変更時の注意点
 
 - `IAttackStrategy` の新規実装を追加する場合は、`Models/AttackStrategy.cs` のマッピングと `GameEngine.Console/UI/UserInteraction.cs` の UI 選択肢も更新すること
