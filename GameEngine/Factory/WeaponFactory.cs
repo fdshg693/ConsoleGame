@@ -18,7 +18,26 @@ namespace GameEngine.Factory
 
         static WeaponFactory()
         {
-            _specs = LoadWeaponSpecs(DefaultYamlPath);
+            _specs = LoadWeaponSpecs(ResolveSpecPath(DefaultYamlPath));
+        }
+
+        /// <summary>
+        /// 仕様ファイルの実在パスを解決する。
+        /// 1) 指定パス（カレントディレクトリ相対）、2) 出力ディレクトリ
+        /// （CopyToOutputDirectory: Always でコピーされたファイル）の順に探索する。
+        /// いずれも存在しない場合は元のパスを返し、読み込み時に明示的な例外を送出させる。
+        /// （GameConfigLoader.ResolveConfigPath / EnemyFactory.ResolveSpecPath と同じフォールバック）
+        /// </summary>
+        private static string ResolveSpecPath(string yamlPath)
+        {
+            if (File.Exists(yamlPath))
+                return yamlPath;
+
+            string baseDirCandidate = Path.Combine(AppContext.BaseDirectory, Path.GetFileName(yamlPath));
+            if (File.Exists(baseDirCandidate))
+                return baseDirCandidate;
+
+            return yamlPath;
         }
 
         private static Dictionary<string, WeaponSpec> LoadWeaponSpecs(string yamlPath)
