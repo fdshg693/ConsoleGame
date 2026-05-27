@@ -8,6 +8,9 @@ namespace GameEngine.Systems.StateMachine
         /// <summary>通常の次ステートへ進む</summary>
         Continue,
 
+        /// <summary>同一ステートに留まる（戦闘ターン継続・ショップ継続などの自己ループ）</summary>
+        Repeat,
+
         /// <summary>ゲーム終了（死亡 or プレイヤーの選択）</summary>
         EndGame,
 

@@ -1,11 +1,15 @@
 using GameEngine.DTOs;
 using GameEngine.Interfaces;
+using GameEngine.Mappers;
 using GameEngine.Models;
+using GameEngine.Systems.BattleSystem;
 
 namespace GameEngine.Systems.StateMachine
 {
     /// <summary>
-    /// 状態機械の実行コンテキスト
+    /// ステップ駆動ステートマシンの実行コンテキスト。全状態が共有する依存（プレイヤー・進行制御・描画・永続化）と、
+    /// 1ステップ分の入力（<see cref="CurrentInput"/>）を保持する。状態クラス自体はステートレスに保ち、
+    /// 進行中データ（敵・ターン・ショップ状態・種別）は <see cref="EventManager"/> に集約する。
     /// </summary>
     public class GameFlowContext
     {
@@ -13,50 +17,43 @@ namespace GameEngine.Systems.StateMachine
 
         public IPlayer Player { get; }
         public EventManager EventManager { get; }
-        public IGameInput Input { get; }
         public IPlayerRepository? PlayerRepository { get; }
+
+        /// <summary>マシンが現在のステップ実行前に設定する入力。状態はここから行動を読む。</summary>
+        public PlayerInput CurrentInput { get; set; } = PlayerInput.None;
 
         public GameFlowContext(
             IPlayer player,
             EventManager eventManager,
-            IGameInput input,
             IPlayerRepository? playerRepository,
             IRenderer renderer)
         {
             Player = player ?? throw new ArgumentNullException(nameof(player));
             EventManager = eventManager ?? throw new ArgumentNullException(nameof(eventManager));
-            Input = input ?? throw new ArgumentNullException(nameof(input));
             PlayerRepository = playerRepository;
             _renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
         }
 
+        /// <summary>状態が描画に使う出力シンク。</summary>
+        public IRenderer Renderer => _renderer;
+
         public bool IsPlayerAlive => Player.IsAlive;
 
-        public void ShowPlayerInfo()
-        {
-            Player.ShowInfo();
-        }
+        /// <summary>直近に決定したエンカウント種別（ショップ/戦闘）。</summary>
+        public GameEventType CurrentEventType => EventManager.CurrentEventType;
 
-        public void RenderMessages(IEnumerable<GameMessage> messages)
-        {
-            _renderer.RenderMessages(messages);
-        }
+        public PlayerState CurrentPlayerState => Player.ToPlayerState();
+        public BattleState? CurrentBattleState => EventManager.CurrentBattleResult?.Battle;
+        public EnemyState? CurrentEnemyState => EventManager.CurrentBattleResult?.Enemy;
+        public ShopState? CurrentShopState => EventManager.CurrentShopState;
 
-        /// <summary>画面をクリアする（各 State から利用）。</summary>
-        public void ClearScreen(string title)
-        {
-            _renderer.ClearScreen(title);
-        }
+        public void ShowPlayerInfo() => Player.ShowInfo();
 
-        public EventResult TriggerRandomEvent()
-        {
-            return EventManager.TriggerRandomEvent();
-        }
+        public void RenderMessages(IEnumerable<GameMessage> messages) => _renderer.RenderMessages(messages);
 
-        public void WriteLine(string text)
-        {
-            _renderer.WriteInfo(text);
-        }
+        public void ClearScreen(string title) => _renderer.ClearScreen(title);
+
+        public void WriteLine(string text) => _renderer.WriteInfo(text);
 
         public void LogTransition(string fromState, string? toState)
         {
@@ -65,38 +62,10 @@ namespace GameEngine.Systems.StateMachine
         }
 
         /// <summary>
-        /// 続行確認（継続・停止・一時保存）
+        /// ゲームデータを保存する（同期ラッパー）。リポジトリ未登録時は「利用不可」を通知して続行する。
         /// </summary>
-        public bool ConfirmContinue()
-        {
-            GameActionChoice action = Input.SelectGameAction();
+        public void SaveGame() => SaveGameAsync().GetAwaiter().GetResult();
 
-            switch (action)
-            {
-                case GameActionChoice.Continue:
-                    return true;
-
-                case GameActionChoice.SaveAndContinue:
-                    SaveGameAsync().Wait();
-                    return true;
-
-                case GameActionChoice.SaveAndQuit:
-                    SaveGameAsync().Wait();
-                    return false;
-
-                case GameActionChoice.Quit:
-                    _renderer.WriteInfo("\nExiting the game.");
-                    return false;
-
-                default:
-                    _renderer.WriteWarning("\nInvalid selection. Continuing the game.");
-                    return true;
-            }
-        }
-
-        /// <summary>
-        /// ゲームデータを保存する
-        /// </summary>
         private async Task SaveGameAsync()
         {
             if (PlayerRepository == null)
@@ -109,7 +78,6 @@ namespace GameEngine.Systems.StateMachine
             try
             {
                 bool success = await PlayerRepository.SaveAsync(Player, "auto_save");
-
                 if (success)
                 {
                     _renderer.WriteSuccess("Game data saved successfully.");
@@ -122,7 +90,7 @@ namespace GameEngine.Systems.StateMachine
         }
 
         /// <summary>
-        /// ゲームオーバー画面を表示
+        /// ゲームオーバー画面を表示する。
         /// </summary>
         public void DisplayGameOver()
         {

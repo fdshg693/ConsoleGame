@@ -21,6 +21,15 @@ UI連携用 DTO、コマンドパターン、永続化 DTO を定義。namespace
   - `ActionType` enum / `ShopActionType` enum
   - `PlayerActionValidator` : バリデーション（戦略名の検証に `AttackStrategyNames` 定数を使用）
 
+### ステップ駆動コントラクト
+
+- **StepContracts.cs** - ステップ駆動エンジン（`GameSystem.Step`）の入出力契約
+  - `ExpectedInput` enum : 次の `Step` で必要な入力種別（`None` / `Attack` / `Shop` / `Rest` / `GameAction`）。ホストはこれを見て対応する行動を供給する
+  - `PlayerInput`（sealed）: 1ステップ分の入力キャリア。`ExpectedInput` に対応するフィールドのみ設定される
+    - ファクトリ: `ForAttack(AttackAction)` / `ForShop(ShopAction)` / `ForRest(UseItemAction?)`（null=スキップ）/ `ForProgress(GameActionChoice)` / `None`（入力不要）
+    - API ホストはリクエストボディから、コンソールホストは `IGameInput` の戻り値から組み立てて `GameSystem.Step` に渡す
+- **GameActionChoice.cs** - エンカウント後の進行選択 enum（`Continue` / `SaveAndContinue` / `SaveAndQuit` / `Quit`）。UI 非依存
+
 ### 永続化 DTO
 
 - **PlayerSaveData.cs** - プレイヤーデータ保存用 DTO

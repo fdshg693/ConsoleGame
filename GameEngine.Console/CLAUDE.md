@@ -27,6 +27,7 @@
    - `IPlayer` → `CreatePlayer(playerName, config, IGameMessageBus)` を登録（`bus` を `ExperienceManager`/`InventoryManager`/`Player` に注入して組み立て）
    - `IPlayerRepository` → `CreatePlayerRepository(config)`。MongoDB 不可なら**登録せず**、`GameSystem` は `IPlayerRepository?` 既定値 null（セーブ無効）で続行
 4. `ServiceProvider` から `GameSystem`（IDisposable）を解決し `RunGameLoop()` を実行
+   - `RunGameLoop()` はコアのステップ駆動 API に対する**薄い駆動ループ**: `Start()` 後 `while(IsRunning)` で `GameSystem.ExpectedInput` を読み、対応する `IGameInput.Select*` から行動を取得して `PlayerInput` に包み `Step()` に渡すだけ。進行順序の制御はコアの State 群が持つ
    - `using` でスコープ終了時に `GameMessageBus` 購読を解除（provider 破棄でも解除されるため二重 Dispose は冪等）
 5. 例外発生時は警告表示後 `Environment.Exit(1)`
 

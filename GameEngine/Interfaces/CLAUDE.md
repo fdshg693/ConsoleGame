@@ -50,7 +50,9 @@ ICharacter
 - `SelectAttackAction()` - 戦闘中の行動選択
 - `SelectShopAction()` - ショップでの行動選択
 - `SelectRestAction()` - 休憩時のアイテム使用選択
-- `SelectGameAction()` - エンカウント後の進行アクション（続行/セーブ/終了）を `GameActionChoice`（`GameEngine.DTOs`）で返す。コア（`GameFlowContext`）から呼ばれる
+- `SelectGameAction()` - エンカウント後の進行アクション（続行/セーブ/終了）を `GameActionChoice`（`GameEngine.DTOs`）で返す
+- 役割: コアのステップ駆動ループからは呼ばれない。コンソールホストの薄い駆動ループ（`GameSystem.RunGameLoop`）が `ExpectedInput` を見て対応する `Select*` を呼び、戻り値を `PlayerInput` に包んで `GameSystem.Step` に渡すためだけに使う
+- API ホストは本インターフェースを使わず、リクエストボディから `PlayerInput` を組み立てて `Step` を呼ぶ
 - 実装: `GameEngine.Console/UI/ConsoleGameInput`
 
 ### IRenderer

@@ -9,13 +9,14 @@ This is a C# console RPG engine on .NET 8.0. The runtime is a layered system tha
 ## Architecture & Data Flow
 
 - **Entry/Composition Root**: [./../GameEngine.Console/Program.cs](./../GameEngine.Console/Program.cs) は唯一の合成起点。`GameConfig` を一度だけ取得し、`IServiceCollection.AddGameEngine()`（[./../GameEngine/DependencyInjection/ServiceCollectionExtensions.cs](./../GameEngine/DependencyInjection/ServiceCollectionExtensions.cs)）でコア依存を登録、`IGameInput`/`IRenderer`/`IPlayer`/`IPlayerRepository` などホスト固有依存を追加登録して `GameSystem` を解決・実行する（`GameConfigLoader.Instance` への直アクセスは合成起点に限定）。
+- **Step-driven control flow**: [./../GameEngine/Systems/GameSystem.cs](./../GameEngine/Systems/GameSystem.cs) は内部にブロッキング `while` を持たないステップ駆動エンジン。`Start()` で統一ステートマシンを起動し、`Step(PlayerInput)`（[./../GameEngine/DTOs/StepContracts.cs](./../GameEngine/DTOs/StepContracts.cs)）を1行動ずつ適用して進める。ホストは `ExpectedInput`（`None`/`Attack`/`Shop`/`Rest`/`GameAction`）を見て対応する `PlayerInput` を渡す。コンソールは `RunGameLoop()`（`IGameInput.Select*` → `Step` の薄い駆動ループ）、API はリクエスト単位で `Step` を呼ぶ。
 - **I/O abstraction**: コアは描画を `IRenderer`（[./../GameEngine/Interfaces](./../GameEngine/Interfaces)）への注入で行い、`Console` 依存を持たない。コンソール UI（`ConsoleRenderer`/`UserInteraction`/`ConsoleGameInput`）は `GameEngine.Console/UI/`（namespace `CliRpgGame.UI`）に隔離。`IRenderer` の登録はホスト責務。
-- **Event routing**: [./../GameEngine/Systems/GameSystem.cs](./../GameEngine/Systems/GameSystem.cs) decides between shop vs battle (1/3 shop, 2/3 battle).
-- **Combat**: [./../GameEngine/Systems/BattleSystem/BattleManager.cs](./../GameEngine/Systems/BattleSystem/BattleManager.cs) coordinates turns; player strategy selection lives in [./../GameEngine.Console/UI/UserInteraction.cs](./../GameEngine.Console/UI/UserInteraction.cs).
+- **Event routing**: [./../GameEngine/Systems/EventManager.cs](./../GameEngine/Systems/EventManager.cs) の `BeginEncounter()` が重み付き設定（`config.Events`、1/3 shop・2/3 battle）でショップ/戦闘を抽選して種別を決定し、`SubmitShopAction`/`SubmitBattleTurn`/`SubmitRestAction` で各サブシステムへ1アクションずつ委譲する（描画・入力に非依存）。
+- **Combat**: [./../GameEngine/Systems/BattleSystem/BattleManager.cs](./../GameEngine/Systems/BattleSystem/BattleManager.cs) は `StartBattle()` / `SubmitPlayerTurn(AttackAction)` でターンをステップ進行し、結果を `BattleStepResult` で返す（描画はステート側が `IRenderer` 経由で行う）。攻撃戦略の選択はコンソール駆動ループから `IGameInput` を通じて供給される。
 - **Composition**: `Player` owns `HealthManager`, `InventoryManager`, `ExperienceManager` (see [./../GameEngine/Models/Player.cs](./../GameEngine/Models/Player.cs) and [./../GameEngine/Manager](./../GameEngine/Manager)).
 
 ```
-Program -> ServiceCollection.AddGameEngine()+host registrations -> ServiceProvider -> GameSystem(Player, Input, EventManager, IPlayerRepository?) -> [ShopSystem | BattleSystem] -> Player/Enemy -> Managers
+Program -> ServiceCollection.AddGameEngine()+host registrations -> ServiceProvider -> GameSystem.Start()/Step(PlayerInput) -> 統一ステートマシン -> [Explore | Shop | Battle | Rest | PostEncounter] step methods -> Player/Enemy -> Managers
 ```
 
 ## Core Patterns (project-specific)

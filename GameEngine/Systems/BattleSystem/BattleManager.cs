@@ -3,198 +3,211 @@ using GameEngine.DTOs;
 using GameEngine.Interfaces;
 using GameEngine.Mappers;
 using GameEngine.Models;
-using GameEngine.Systems;
 
 namespace GameEngine.Systems.BattleSystem
 {
     /// <summary>
-    /// 戦闘全体の管理を行うクラス
+    /// ターン制戦闘をステップ駆動で進める。内部 while ループは持たず、
+    /// <see cref="StartBattle"/> で1戦闘を開始し、<see cref="SubmitPlayerTurn"/> を
+    /// 外部から繰り返し呼ぶことで1ターンずつ進行する。描画・入力には依存しない
+    /// （結果は <see cref="BattleStepResult"/> として返し、描画はホスト側 State が担う）。
     /// </summary>
     public class BattleManager
     {
         private readonly IPlayer _player;
-        private readonly IGameInput _input;
         private readonly IEnemyFactory _enemyFactory;
-        private readonly IRenderer _renderer;
 
-        public BattleManager(IPlayer player, IGameInput input, IEnemyFactory enemyFactory, IRenderer renderer)
+        private IEnemy? _enemy;
+        private int _turn;
+
+        public BattleManager(IPlayer player, IEnemyFactory enemyFactory)
         {
             _player = player ?? throw new ArgumentNullException(nameof(player));
-            _input = input ?? throw new ArgumentNullException(nameof(input));
             _enemyFactory = enemyFactory ?? throw new ArgumentNullException(nameof(enemyFactory));
-            _renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
         }
 
+        /// <summary>進行中の敵（戦闘終了後は null）。</summary>
+        public IEnemy? CurrentEnemy => _enemy;
+
+        /// <summary>これまでに消化したターン数。</summary>
+        public int TurnNumber => _turn;
+
+        /// <summary>戦闘が進行中か（敵生存・プレイヤー生存）。</summary>
+        public bool IsBattleActive => _enemy != null && _player.IsAlive && _enemy.IsAlive;
+
         /// <summary>
-        /// 戦闘を開始する
+        /// 戦闘を開始する。敵を1体生成し、初期 <see cref="BattleStepResult"/>（進行中）を返す。
         /// </summary>
-        public BattleResult StartBattle()
+        public BattleStepResult StartBattle()
         {
-            var messages = new List<GameMessage>();
             try
             {
-                IEnemy enemy = _enemyFactory.CreateRandomEnemy();
-                messages.Add(GameStateMapper.CreateMessage($"A wild {enemy.Name} appears!", MessageType.Combat));
+                _enemy = _enemyFactory.CreateRandomEnemy();
+                _turn = 0;
 
-                return ExecuteBattle(enemy, messages);
+                var messages = new List<GameMessage>
+                {
+                    GameStateMapper.CreateMessage($"A wild {_enemy.Name} appears!", MessageType.Combat)
+                };
+
+                return new BattleStepResult(
+                    BattleOutcome.InProgress,
+                    BuildBattleState(ended: false, playerWon: false, lastAction: null),
+                    _enemy.ToEnemyState(),
+                    _player.ToPlayerState(),
+                    messages);
             }
             catch (Exception ex)
             {
-                messages.Add(GameStateMapper.CreateMessage($"Error starting battle: {ex.Message}", MessageType.Error));
-                return new BattleResult(BattleOutcome.Error, null, messages);
+                _enemy = null;
+                var messages = new List<GameMessage>
+                {
+                    GameStateMapper.CreateMessage($"Error starting battle: {ex.Message}", MessageType.Error)
+                };
+                return new BattleStepResult(BattleOutcome.Error, null, null, _player.ToPlayerState(), messages);
             }
         }
 
         /// <summary>
-        /// 指定された敵との戦闘を実行する
+        /// プレイヤー1ターン + 敵1ターンを進める。勝敗が決した場合は決着を <see cref="BattleStepResult.Outcome"/> で返す。
         /// </summary>
-        private BattleResult ExecuteBattle(IEnemy enemy, List<GameMessage> messages)
+        public BattleStepResult SubmitPlayerTurn(AttackAction action)
         {
-            var battleTurn = 0;
+            var messages = new List<GameMessage>();
 
-            while (_player.IsAlive && enemy.IsAlive)
+            if (_enemy == null)
             {
-                battleTurn++;
-
-                // Clear screen and show status panel at start of each turn
-                _renderer.ClearScreen($"BATTLE - Turn {battleTurn}");
-                var playerState = _player.ToPlayerState();
-                var enemyState = enemy.ToEnemyState();
-                _renderer.RenderStatusPanel(playerState, enemyState);
-
-                // プレイヤーのターン
-            ExecutePlayerTurn(enemy, battleTurn, messages);
-
-                // 敵が倒された場合
-                if (!enemy.IsAlive)
-                {
-                    return HandleVictory(enemy, messages);
-                }
-
-                // 敵のターン
-                ExecuteEnemyTurn(enemy, messages);
-
-                // プレイヤーが倒された場合
-                if (!_player.IsAlive)
-                {
-                    return HandleDefeat(enemy, messages);
-                }
-
-                // ターン終了時の状態表示
-                DisplayBattleStatus(enemy, messages);
+                messages.Add(GameStateMapper.CreateMessage("No active battle to submit a turn for.", MessageType.Error));
+                return new BattleStepResult(BattleOutcome.Error, null, null, _player.ToPlayerState(), messages);
             }
 
-            // 通常はここには到達しない
-            return new BattleResult(BattleOutcome.Error, enemy, messages);
-        }
+            var enemy = _enemy;
+            _turn++;
 
-        /// <summary>
-        /// プレイヤーのターンを実行
-        /// </summary>
-        private void ExecutePlayerTurn(IEnemy enemy, int battleTurn, List<GameMessage> messages)
-        {
-            var battleState = new BattleState
+            // 攻撃戦略の検証（不正なら Default にフォールバック）
+            if (action == null)
             {
-                TurnNumber = battleTurn,
-                AvailableStrategies = new List<string>(AttackStrategyNames.All)
-            };
-            var playerState = _player.ToPlayerState();
-            var enemyState = enemy.ToEnemyState();
-
-            // 攻撃戦略をプレイヤーに選択させる
-            var attackAction = _input.SelectAttackAction(battleState, playerState, enemyState);
-            if (!PlayerActionValidator.IsValid(attackAction, out var errorMessage))
+                messages.Add(GameStateMapper.CreateMessage("Invalid action: null", MessageType.Warning));
+                action = new AttackAction(AttackStrategyNames.Default);
+            }
+            else if (!PlayerActionValidator.IsValid(action, out var errorMessage))
             {
                 messages.Add(GameStateMapper.CreateMessage($"Invalid action: {errorMessage}", MessageType.Warning));
-                attackAction = new AttackAction("Default");
+                action = new AttackAction(AttackStrategyNames.Default);
             }
 
-            var attackStrategyName = attackAction.StrategyName;
-            _player.ChangeAttackStrategy(attackStrategyName);
+            var strategyName = action.StrategyName;
+            _player.ChangeAttackStrategy(strategyName);
 
-            // 攻撃実行
+            // プレイヤーのターン
+            int enemyHpBefore = enemy.HP;
             _player.Attack(enemy);
-            messages.Add(GameStateMapper.CreateMessage($"{_player.Name} attacks {enemy.Name} with {attackStrategyName}!", MessageType.Combat));
-        }
+            int damageDealt = Math.Max(0, enemyHpBefore - enemy.HP);
+            messages.Add(GameStateMapper.CreateMessage($"{_player.Name} attacks {enemy.Name} with {strategyName}!", MessageType.Combat));
 
-        /// <summary>
-        /// 敵のターンを実行
-        /// </summary>
-        private void ExecuteEnemyTurn(IEnemy enemy, List<GameMessage> messages)
-        {
+            // 敵が倒された場合（勝利）
+            if (!enemy.IsAlive)
+            {
+                messages.Add(GameStateMapper.CreateMessage($"{enemy.Name} has been defeated!", MessageType.Success));
+                GameRecord.RecordWin();
+                messages.AddRange(GameRecord.GetRecordMessages());
+                _player.DefeatEnemy(enemy);
+
+                var victory = new BattleStepResult(
+                    BattleOutcome.Victory,
+                    BuildBattleState(ended: true, playerWon: true, lastAction: strategyName, damageDealt: damageDealt),
+                    enemy.ToEnemyState(),
+                    _player.ToPlayerState(),
+                    messages);
+                _enemy = null;
+                return victory;
+            }
+
+            // 敵のターン
+            int playerHpBefore = _player.HP;
             enemy.Attack(_player);
+            int damageTaken = Math.Max(0, playerHpBefore - _player.HP);
             messages.Add(GameStateMapper.CreateMessage($"{enemy.Name} attacks {_player.Name} with {enemy.AttackStrategy.GetAttackStrategyName()}!", MessageType.Combat));
+
+            // プレイヤーが倒された場合（敗北）
+            if (!_player.IsAlive)
+            {
+                messages.Add(GameStateMapper.CreateMessage($"{_player.Name} has fallen...", MessageType.Error));
+                GameRecord.RecordLoss();
+                messages.AddRange(GameRecord.GetRecordMessages());
+
+                var defeat = new BattleStepResult(
+                    BattleOutcome.Defeat,
+                    BuildBattleState(ended: true, playerWon: false, lastAction: strategyName, damageDealt: damageDealt, damageTaken: damageTaken),
+                    enemy.ToEnemyState(),
+                    _player.ToPlayerState(),
+                    messages);
+                _enemy = null;
+                return defeat;
+            }
+
+            // 戦闘継続
+            return new BattleStepResult(
+                BattleOutcome.InProgress,
+                BuildBattleState(ended: false, playerWon: false, lastAction: strategyName, damageDealt: damageDealt, damageTaken: damageTaken),
+                enemy.ToEnemyState(),
+                _player.ToPlayerState(),
+                messages);
         }
 
-        /// <summary>
-        /// 戦闘状態を表示
-        /// </summary>
-        private void DisplayBattleStatus(IEnemy enemy, List<GameMessage> messages)
+        private BattleState BuildBattleState(bool ended, bool playerWon, string? lastAction, int damageDealt = 0, int damageTaken = 0)
         {
-            _renderer.WriteSeparator();
-            _renderer.RenderHPBar(_player.Name, _player.HP, _player.MaxHP);
-            _renderer.RenderHPBar(enemy.Name, enemy.HP, enemy.MaxHP);
-        }
-
-        /// <summary>
-        /// 勝利時の処理
-        /// </summary>
-        private BattleResult HandleVictory(IEnemy enemy, List<GameMessage> messages)
-        {
-            messages.Add(GameStateMapper.CreateMessage($"{enemy.Name} has been defeated!", MessageType.Success));
-            GameRecord.RecordWin();
-            messages.AddRange(GameRecord.GetRecordMessages());
-
-            _player.DefeatEnemy(enemy);
-
-            _renderer.WriteResultBox("VICTORY!", new[] { $"{enemy.Name} has been defeated!" }, true);
-            _renderer.WaitForKeyPress();
-
-            return new BattleResult(BattleOutcome.Victory, enemy, messages);
-        }
-
-        /// <summary>
-        /// 敗北時の処理
-        /// </summary>
-        private BattleResult HandleDefeat(IEnemy enemy, List<GameMessage> messages)
-        {
-            messages.Add(GameStateMapper.CreateMessage($"{_player.Name} has fallen...", MessageType.Error));
-            GameRecord.RecordLoss();
-            messages.AddRange(GameRecord.GetRecordMessages());
-
-            _renderer.WriteResultBox("DEFEAT", new[] { $"{_player.Name} has fallen..." }, false);
-            _renderer.WaitForKeyPress();
-
-            return new BattleResult(BattleOutcome.Defeat, enemy, messages);
+            return new BattleState
+            {
+                TurnNumber = _turn,
+                AvailableStrategies = new List<string>(AttackStrategyNames.All),
+                LastPlayerAction = lastAction,
+                LastDamageDealt = damageDealt,
+                LastDamageTaken = damageTaken,
+                PlayerWon = playerWon,
+                BattleEnded = ended
+            };
         }
     }
 
     /// <summary>
-    /// 戦闘結果を表すクラス
+    /// 1ステップ分の戦闘結果。進行中/勝利/敗北/エラーと、その時点の状態 DTO・メッセージを保持する。
     /// </summary>
-    public class BattleResult
+    public class BattleStepResult
     {
         public BattleOutcome Outcome { get; }
-        public IEnemy? Enemy { get; }
+        public BattleState? Battle { get; }
+        public EnemyState? Enemy { get; }
+        public PlayerState Player { get; }
         public IReadOnlyList<GameMessage> Messages { get; }
 
-        public BattleResult(BattleOutcome outcome, IEnemy? enemy, IReadOnlyList<GameMessage> messages)
+        public BattleStepResult(
+            BattleOutcome outcome,
+            BattleState? battle,
+            EnemyState? enemy,
+            PlayerState player,
+            IReadOnlyList<GameMessage> messages)
         {
             Outcome = outcome;
+            Battle = battle;
             Enemy = enemy;
+            Player = player ?? throw new ArgumentNullException(nameof(player));
             Messages = messages ?? Array.Empty<GameMessage>();
         }
 
+        public bool IsOver => Outcome != BattleOutcome.InProgress;
         public bool IsVictory => Outcome == BattleOutcome.Victory;
         public bool IsDefeat => Outcome == BattleOutcome.Defeat;
         public bool IsError => Outcome == BattleOutcome.Error;
     }
 
     /// <summary>
-    /// 戦闘の結果を表す列挙型
+    /// 戦闘ステップの結果種別。
     /// </summary>
     public enum BattleOutcome
     {
+        /// <summary>戦闘継続中（次のターン入力が必要）。</summary>
+        InProgress,
         Victory,
         Defeat,
         Error

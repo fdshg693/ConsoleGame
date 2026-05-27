@@ -9,7 +9,7 @@ Always be careful whether there is a skill related to the task at hand, and use 
 - complex problems, complex existing code => AGENT-TEAMS
 
 number of agents to use
-- SUB-AGENTS -> as many as possible, but be aware of editing the same file by multiple agents at the same time.
+- SUB-AGENTS -> as many as possible, but be aware of the risk of editing the same file by multiple agents at the same time.
 When task is to explore code, or handle codes in different folders, you should especially consider using multiple sub-agents.
 - AGENT-TEAMS -> 2 to 4 agents. More than that may cause confusion and inefficiency.
 

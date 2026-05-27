@@ -9,11 +9,14 @@ GameEngine.Console/Program.cs (合成起点 / Composition Root)
   -> GameConfig を一度だけ取得（GameConfigLoader.Instance）
   -> ServiceCollection.AddGameEngine() でコア依存を登録
   -> IGameInput / IRenderer / IPlayer / IPlayerRepository をホスト登録
-  -> ServiceProvider から GameSystem を解決して RunGameLoop()
-       -> ShopSystem (買い物イベント)
-       -> BattleSystem (戦闘イベント)
+  -> ServiceProvider から GameSystem を解決
+       -> Start() で状態機械を起動
+       -> Step(PlayerInput) を 1 行動ずつ適用して進行
+            -> 統一ステートマシン: [Explore | Shop | Battle | Rest | PostEncounter | GameOver]
 ```
 
+- `GameSystem` は内部にブロッキング `while` ループを持たない**ステップ駆動エンジン**。「1 行動 → 1 ステップ → 状態」で外部から駆動する（`Start()` 後に `Step(PlayerInput)` を反復）
+- ホストは `GameSystem.ExpectedInput`（次に必要な入力種別）を見て、対応する `PlayerInput` を組み立てて `Step` に渡す。進行順序の制御はコアの State 群が持つ
 - Factory / Strategy / Manager パターンを組み合わせたターン制戦闘エンジン
 - ゲームバランスは全て YAML 設定ファイルで外部化
 - コアは `System.Console` に直接依存しない。表示は `IRenderer`、入力は `IGameInput` 経由。コンソール固有 UI（`ConsoleRenderer` / `ConsoleGameInput` / `UserInteraction`）は `GameEngine.Console/UI/` に存在する
@@ -25,7 +28,7 @@ GameEngine.Console/Program.cs (合成起点 / Composition Root)
   - `GameConfig` — Singleton（`GameConfigLoader.Instance` を1度だけ解決。直アクセスはこの合成に限定）
   - `IGameMessageBus` → `GameMessageBus`（Singleton。発行側（Player/Manager/Enemy）と購読側（`GameSystem` → `IRenderer`）が同一インスタンスを共有）
   - `IEnemyFactory` → `EnemyFactory`（Singleton, `GameConfig.Enemy` 由来。生成時に `IGameMessageBus` を渡す）
-  - `EventManager` / `GameSystem` — Singleton（進行制御。`IPlayer`/`IGameInput`/`IRenderer` はホスト登録後に解決される）
+  - `EventManager` / `GameSystem` — Singleton（進行制御。`EventManager` は描画・入力に非依存で `IPlayer`/`GameConfig`/`IEnemyFactory`〔＋任意の `Random?`〕から解決。`GameSystem` の `IPlayer`/`IGameInput`/`IRenderer` はホスト登録後に解決される）
 - 登録しない（ホスト責務）もの: `IGameInput`（UI 入力実装）/ `IRenderer`（描画実装。コンソールは ANSI、API はバッファ/DTO 蓄積）/ `IPlayer`（実行時プレイヤー名）/ `IPlayerRepository`（任意。未登録なら `GameSystem` は `IPlayerRepository?` 既定値 null でセーブ無効）
 - 依存パッケージ: `Microsoft.Extensions.DependencyInjection.Abstractions`
 
