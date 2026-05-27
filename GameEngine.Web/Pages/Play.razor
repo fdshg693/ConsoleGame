@@ -6,7 +6,12 @@
 
 <PageTitle>プレイ - Console RPG</PageTitle>
 
-@if (Store.Current is null)
+@if (_sessionExpired)
+{
+    <div class="alert alert-warning" role="alert">セッションが失効しました。新しい冒険を始めてください。</div>
+    <button class="btn btn-primary" @onclick="GoToMenu">メニューへ</button>
+}
+else if (Store.Current is null)
 {
     <p><em>セッションがありません。メニューへ戻ります...</em></p>
 }
@@ -18,6 +23,22 @@ else
         <aside class="play-side">
             <PlayerPanel Player="state.Player" />
             <MessageLog Messages="Store.Log" />
+
+            @if (Store.SaveAvailable == true && state.IsRunning)
+            {
+                <div class="panel save-box">
+                    <div class="panel-title">セーブ</div>
+                    <label class="save-slot-label">
+                        スロット
+                        <input class="form-control" @bind="_saveSlot" placeholder="auto_save" disabled="@_busy" />
+                    </label>
+                    <button class="btn btn-info btn-sm" disabled="@_busy" @onclick="SaveGameAsync">この内容をセーブ</button>
+                    @if (_saveMessage is not null)
+                    {
+                        <p class="save-status">@_saveMessage</p>
+                    }
+                </div>
+            }
         </aside>
 
         <section class="play-main">
@@ -95,9 +116,13 @@ else
                 <p>このエンカウントを終えました。続けますか？</p>
                 <div class="action-row">
                     <button class="btn btn-primary" disabled="@_busy" @onclick="ContinueGameAsync">続ける</button>
+                    @if (Store.SaveAvailable == true)
+                    {
+                        <button class="btn btn-info" disabled="@_busy" @onclick="SaveAndContinueAsync">セーブして続ける</button>
+                        <button class="btn btn-outline-info" disabled="@_busy" @onclick="SaveAndQuitAsync">セーブして終了</button>
+                    }
                     <button class="btn btn-outline-secondary" disabled="@_busy" @onclick="QuitGameAsync">終了する</button>
                 </div>
-                @* セーブ付きの進行（SaveAndContinue / SaveAndQuit）は W3 で追加。 *@
             }
             else
             {
@@ -113,18 +138,24 @@ else
 @code {
     private bool _busy;
     private string? _error;
+    private bool _sessionExpired;
     private int _potionQty = 1;
+    private string _saveSlot = string.Empty;
+    private string? _saveMessage;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         Store.OnChange += OnStoreChanged;
 
-        // W2 では Home からの遷移で Store.Current が入っている前提。
-        // 直接アクセス/リロードで状態が無い場合はメニューへ戻す（リロード復帰は W4）。
+        // Home からの遷移で Store.Current が入っている前提。直接アクセス/リロードで状態が無い場合は
+        // メニューへ戻す（起動時 GET によるリロード復帰は W4）。
         if (Store.Current is null)
         {
             Nav.NavigateTo("/");
+            return;
         }
+
+        await ProbeSaveAvailabilityAsync();
     }
 
     public void Dispose() => Store.OnChange -= OnStoreChanged;
@@ -133,7 +164,30 @@ else
 
     private string SessionId => Store.SessionId!;
 
-    // ---- アクション（ExpectedInput 別。文字列リテラルは C# 側に置く） ----
+    /// <summary>セーブ可否を一度だけ判定する（読み取り専用の一覧取得で 503 なら無効と判断）。</summary>
+    private async Task ProbeSaveAvailabilityAsync()
+    {
+        if (Store.SaveAvailable is not null)
+        {
+            return; // 既に判定済み（Home でのロード等）。
+        }
+
+        try
+        {
+            await Api.GetSavesAsync(Store.Current!.Player.Name);
+            Store.SetSaveAvailable(true);
+        }
+        catch (GameApiException ex) when (ex.StatusCode == HttpStatusCode.ServiceUnavailable)
+        {
+            Store.SetSaveAvailable(false);
+        }
+        catch
+        {
+            // 判定不能（ネットワーク等）。安全側に倒してセーブ UI は出さない（未判定のまま）。
+        }
+    }
+
+    // ---- 進行アクション（ExpectedInput 別。文字列リテラルは C# 側に置く） ----
 
     private Task AttackAsync(string strategy) => RunAsync(() => Api.BattleTurnAsync(SessionId, strategy));
 
@@ -154,6 +208,13 @@ else
 
     private Task QuitGameAsync() => RunAsync(() => Api.ContinueAsync(SessionId, GameActionChoice.Quit));
 
+    // セーブ付きの進行（既定スロットへ確定セーブ）。リポジトリ未設定時はサーバ側で黙ってスキップされるため、
+    // ボタン自体を SaveAvailable で出し分けて誤操作を避ける。
+    private Task SaveAndContinueAsync() => RunAsync(() => Api.ContinueAsync(SessionId, GameActionChoice.SaveAndContinue));
+
+    private Task SaveAndQuitAsync() => RunAsync(() => Api.ContinueAsync(SessionId, GameActionChoice.SaveAndQuit));
+
+    /// <summary>進行ステップの共通実行。二重送信防止＋ステップ適用＋ステータス別エラー処理。</summary>
     private async Task RunAsync(Func<Task<GameStateResponse>> step)
     {
         if (_busy)
@@ -163,14 +224,18 @@ else
 
         _busy = true;
         _error = null;
+        _saveMessage = null;
         try
         {
             var next = await step();
             await Store.ApplyAsync(next);
         }
+        catch (GameApiException ex)
+        {
+            await HandleApiErrorAsync(ex);
+        }
         catch (Exception ex)
         {
-            // W3 で HTTP ステータス別（404/409/400/503）の細かいハンドリングに置き換える。
             _error = $"通信に失敗しました: {ex.Message}";
         }
         finally
@@ -178,6 +243,81 @@ else
             _busy = false;
         }
     }
+
+    /// <summary>明示的な確定セーブ（任意スロット）。503 はセーブ UI を無効化する。</summary>
+    private async Task SaveGameAsync()
+    {
+        if (_busy)
+        {
+            return;
+        }
+
+        _busy = true;
+        _error = null;
+        _saveMessage = null;
+        try
+        {
+            var slot = string.IsNullOrWhiteSpace(_saveSlot) ? null : _saveSlot.Trim();
+            await Api.SaveAsync(SessionId, slot);
+            Store.SetSaveAvailable(true);
+            _saveMessage = $"セーブしました（スロット: {slot ?? "auto_save"}）。";
+        }
+        catch (GameApiException ex)
+        {
+            await HandleApiErrorAsync(ex);
+        }
+        catch (Exception ex)
+        {
+            _error = $"通信に失敗しました: {ex.Message}";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    /// <summary>HTTP ステータス別のハンドリング（404→失効誘導 / 409→再取得 / 503→セーブ無効化 / その他→表示）。</summary>
+    private async Task HandleApiErrorAsync(GameApiException ex)
+    {
+        switch (ex.StatusCode)
+        {
+            case HttpStatusCode.NotFound:           // セッション失効 → メニューへ誘導
+                _sessionExpired = true;
+                await Store.ClearAsync();
+                break;
+
+            case HttpStatusCode.Conflict:           // ExpectedInput 不一致 → 最新状態に同期
+                await ResyncAsync();
+                break;
+
+            case HttpStatusCode.ServiceUnavailable: // セーブ未設定/到達不可 → セーブ UI 無効化
+                Store.SetSaveAvailable(false);
+                _error = "セーブ機能は利用できません（サーバにセーブ先が構成されていません）。";
+                break;
+
+            default:                                 // 400（バリデーション）など
+                _error = ex.Message;
+                break;
+        }
+    }
+
+    /// <summary>409 時に現在状態を取り直してクライアントを整合させる。再取得で 404 なら失効扱い。</summary>
+    private async Task ResyncAsync()
+    {
+        try
+        {
+            var latest = await Api.GetSessionAsync(SessionId);
+            await Store.ApplyAsync(latest);
+            _error = "操作が現在の状態と一致しなかったため、最新の状態に同期しました。";
+        }
+        catch (GameApiException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        {
+            _sessionExpired = true;
+            await Store.ClearAsync();
+        }
+    }
+
+    private void GoToMenu() => Nav.NavigateTo("/");
 
     private async Task BackToMenuAsync()
     {

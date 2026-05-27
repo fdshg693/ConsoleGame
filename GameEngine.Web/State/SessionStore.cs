@@ -31,8 +31,24 @@ namespace GameEngine.Web.State
         /// <summary>セッション開始以降に蓄積したメッセージの累積ログ。</summary>
         public IReadOnlyList<GameMessage> Log => _log;
 
+        /// <summary>
+        /// 確定セーブ機能が使えるか（API がプレイヤーリポジトリを構成しているか）。<c>null</c>=未判定。
+        /// セーブ系エンドポイントが 503 を返した場合に false へ落とし、セーブ UI を無効化する。
+        /// </summary>
+        public bool? SaveAvailable { get; private set; }
+
         /// <summary>状態が変化したときに発火する（コンポーネントは購読して再描画する）。</summary>
         public event Action? OnChange;
+
+        /// <summary>セーブ可否を更新する（変化があれば購読側へ通知）。</summary>
+        public void SetSaveAvailable(bool available)
+        {
+            if (SaveAvailable != available)
+            {
+                SaveAvailable = available;
+                OnChange?.Invoke();
+            }
+        }
 
         /// <summary>起動時に localStorage から sessionId を読み出す（リロード復帰の起点。復帰自体は W4）。</summary>
         public async Task LoadSessionIdAsync()

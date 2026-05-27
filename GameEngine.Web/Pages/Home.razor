@@ -7,7 +7,7 @@
 
 <h1>Console RPG</h1>
 
-<p>ブラウザでプレイする、ステップ駆動の RPG。新規に冒険を始めましょう。</p>
+<p>ブラウザでプレイする、ステップ駆動の RPG。新規に冒険を始めるか、セーブから再開できます。</p>
 
 @if (_error is not null)
 {
@@ -19,17 +19,112 @@
         プレイヤー名
         <input class="form-control" @bind="_playerName" placeholder="Hero" disabled="@_busy" />
     </label>
-    <button class="btn btn-primary" @onclick="StartNewAsync" disabled="@_busy">@(_busy ? "開始中..." : "新規開始")</button>
+    <button class="btn btn-primary" @onclick="StartNewAsync" disabled="@_busy">@(_busy ? "処理中..." : "新規開始")</button>
 </div>
 
-@* ロード（セーブからの再開）はフェーズ W3 で追加する。 *@
+<hr />
+
+<section class="load-section">
+    <h2>セーブから再開</h2>
+
+    @if (Store.SaveAvailable == false)
+    {
+        <p class="text-muted"><em>セーブ機能は利用できません（サーバにセーブ先が構成されていません）。</em></p>
+    }
+    else
+    {
+        <p>プレイヤー名を入力してセーブ一覧を表示し、スロットを選んでロードします。</p>
+        <div class="action-row">
+            <button class="btn btn-outline-primary" @onclick="ListSavesAsync" disabled="@(_busy || string.IsNullOrWhiteSpace(_playerName))">
+                セーブ一覧を表示
+            </button>
+        </div>
+
+        @if (_saves is not null)
+        {
+            @if (_saves.Count == 0)
+            {
+                <p class="text-muted"><em>「@_listedName」のセーブはありません。</em></p>
+            }
+            else
+            {
+                <ul class="save-list">
+                    @foreach (var save in _saves)
+                    {
+                        var s = save;
+                        <li>
+                            <span class="save-meta">
+                                <strong>@s.SaveSlotName</strong>
+                                — Lv @s.Level / HP @s.CurrentHP/@s.MaxHP / Gold @s.TotalGold
+                                <span class="save-time">（@s.SavedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")）</span>
+                            </span>
+                            <span class="save-actions">
+                                <button class="btn btn-success btn-sm" disabled="@_busy" @onclick="() => LoadAsync(s.SaveSlotName)">ロード</button>
+                                <button class="btn btn-outline-danger btn-sm" disabled="@_busy" @onclick="() => DeleteSaveAsync(s.SaveSlotName)">削除</button>
+                            </span>
+                        </li>
+                    }
+                </ul>
+            }
+        }
+    }
+</section>
 
 @code {
     private string _playerName = string.Empty;
     private bool _busy;
     private string? _error;
 
+    private List<PlayerSaveData>? _saves;   // null=未取得、空=取得したがセーブ無し
+    private string _listedName = string.Empty;
+
     private async Task StartNewAsync()
+    {
+        await RunAsync(async () =>
+        {
+            var name = string.IsNullOrWhiteSpace(_playerName) ? null : _playerName.Trim();
+            var state = await Api.CreateSessionAsync(name);
+            await Store.ApplyAsync(state);
+            Nav.NavigateTo("/play");
+        });
+    }
+
+    private async Task ListSavesAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_playerName))
+        {
+            return;
+        }
+
+        await RunAsync(async () =>
+        {
+            _listedName = _playerName.Trim();
+            _saves = await Api.GetSavesAsync(_listedName);
+            Store.SetSaveAvailable(true);
+        });
+    }
+
+    private async Task LoadAsync(string slot)
+    {
+        await RunAsync(async () =>
+        {
+            var state = await Api.LoadAsync(_listedName, slot);
+            await Store.ApplyAsync(state);
+            Nav.NavigateTo("/play");
+        });
+    }
+
+    private async Task DeleteSaveAsync(string slot)
+    {
+        await RunAsync(async () =>
+        {
+            await Api.DeleteSaveAsync(_listedName, slot);
+            _saves = await Api.GetSavesAsync(_listedName);   // 一覧を再取得して反映
+        });
+    }
+
+    /// <summary>共通の実行ラッパー。二重送信防止＋ステータス別エラー表示（503=セーブ無効化）。</summary>
+    private async Task RunAsync(Func<Task> action)
     {
         if (_busy)
         {
@@ -40,14 +135,28 @@
         _error = null;
         try
         {
-            var name = string.IsNullOrWhiteSpace(_playerName) ? null : _playerName.Trim();
-            var state = await Api.CreateSessionAsync(name);
-            await Store.ApplyAsync(state);
-            Nav.NavigateTo("/play");
+            await action();
+        }
+        catch (GameApiException ex) when (ex.StatusCode == HttpStatusCode.ServiceUnavailable)
+        {
+            Store.SetSaveAvailable(false);
+            _saves = null;
+            _error = "セーブ機能は利用できません（サーバにセーブ先が構成されていません）。";
+        }
+        catch (GameApiException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        {
+            _error = "該当するセーブが見つかりませんでした。";
+        }
+        catch (GameApiException ex)
+        {
+            _error = ex.Message;
         }
         catch (Exception ex)
         {
-            _error = $"セッションの開始に失敗しました: {ex.Message}";
+            _error = $"通信に失敗しました: {ex.Message}";
+        }
+        finally
+        {
             _busy = false;
         }
     }
