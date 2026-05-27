@@ -1,14 +1,15 @@
 # GameEngine
 
-C#コンソールRPGエンジンのメインアプリケーション（.NET 8.0）。
+C#コンソールRPGエンジンの**コアライブラリ**（.NET 8.0, Library 出力）。コンソール/API 双方のホストから `ProjectReference` される。エントリポイント（Exe）は別プロジェクト [GameEngine.Console](./../GameEngine.Console/CLAUDE.md)。
 
 ## アーキテクチャ概要
 
 ```
-Program.cs (エントリポイント / Composition Root)
+GameEngine.Console/Program.cs (合成起点 / Composition Root)
   -> GameConfig を一度だけ取得（GameConfigLoader.Instance）
-  -> Player / EventManager / IPlayerRepository を生成
-  -> GameSystem に注入して RunGameLoop()
+  -> ServiceCollection.AddGameEngine() でコア依存を登録
+  -> IGameInput / IPlayer / IPlayerRepository をホスト登録
+  -> ServiceProvider から GameSystem を解決して RunGameLoop()
        -> ShopSystem (買い物イベント)
        -> BattleSystem (戦闘イベント)
 ```
@@ -16,20 +17,15 @@ Program.cs (エントリポイント / Composition Root)
 - Factory / Strategy / Manager パターンを組み合わせたターン制戦闘エンジン
 - ゲームバランスは全て YAML 設定ファイルで外部化
 
-## Program.cs（エントリポイント / Composition Root）
+## DependencyInjection/ServiceCollectionExtensions.cs（DI 合成）
 
-- 依存の組み立てを集約する唯一の合成起点。`GameConfigLoader.Instance` への直アクセスはここに限定する
-- `GameConfigLoader.Instance` で `GameConfig` を一度だけ取得（起動時バリデーション）し、以降は引数で明示注入
-- プレイヤー名をコンソール入力（空の場合は "Hero"）
-- `CreatePlayer(name, config)`:
-  - `ExperienceManager(config.LevelUp.ExperienceRequired)` を生成
-  - `InventoryManager(config.Player.InitialGold, config.Player.InitialPotions, config.Items.Potion.Price)` を生成
-  - `new Player(name, config, AttackStrategy.GetAttackStrategy(AttackStrategyNames.Default), experienceManager, inventoryManager)` — `GameConfig` 全体を `Player` に注入
-- `ConsoleGameInput(config.Items.Potion.Price, config.Items.Potion.HealAmount)` を生成
-- `IEnemyFactory enemyFactory = new EnemyFactory(config.Enemy)` を生成
-- `new EventManager(player, gameInput, config, enemyFactory)` を生成（`IEnemyFactory` を受け取る）
-- `using var gameSystem = new GameSystem(player, gameInput, eventManager, playerRepository)`（IDisposable）を生成し `RunGameLoop()` を実行 → `GameMessageBus` 購読をスコープ終了時に解除
-- 例外発生時は `Environment.Exit(1)` で終了
+- `AddGameEngine(this IServiceCollection)` がコア依存の登録を集約する。コンソール/API 両ホストから呼ぶ
+- 登録するもの（UI 非依存・実行時入力不要のコア）:
+  - `GameConfig` — Singleton（`GameConfigLoader.Instance` を1度だけ解決。直アクセスはこの合成に限定）
+  - `IEnemyFactory` → `EnemyFactory`（Singleton, `GameConfig.Enemy` 由来）
+  - `EventManager` / `GameSystem` — Singleton（進行制御。`IPlayer`/`IGameInput` はホスト登録後に解決される）
+- 登録しない（ホスト責務）もの: `IGameInput`（UI 実装）/ `IPlayer`（実行時プレイヤー名）/ `IPlayerRepository`（任意。未登録なら `GameSystem` は `IPlayerRepository?` 既定値 null でセーブ無効）
+- 依存パッケージ: `Microsoft.Extensions.DependencyInjection.Abstractions`
 
 ## YAML 設定ファイル
 
@@ -66,6 +62,7 @@ Program.cs (エントリポイント / Composition Root)
 
 ## 外部依存パッケージ
 
+- `Microsoft.Extensions.DependencyInjection.Abstractions 8.0.0` — `AddGameEngine` 拡張（`IServiceCollection`）
 - `YamlDotNet 16.3.0` — YAML のデシリアライズ
 - `MongoDB.Driver 3.5.0` — セーブデータの永続化
 
@@ -73,6 +70,7 @@ Program.cs (エントリポイント / Composition Root)
 
 各フォルダの詳細は個別の CLAUDE.md を参照:
 
+- `DependencyInjection/` — `AddGameEngine` 拡張（上記「DI 合成」参照）
 - [Factory/CLAUDE.md](./Factory/CLAUDE.md) — EnemyFactory, WeaponFactory, YamlSpecLoader
 - [Interfaces/CLAUDE.md](./Interfaces/CLAUDE.md) — IAttackStrategy, ICharacter, IEnemy 等
 - [Manager/CLAUDE.md](./Manager/CLAUDE.md) — HealthManager, InventoryManager, ExperienceManager, CombatManager, SaveDataManager
@@ -86,8 +84,8 @@ Program.cs (エントリポイント / Composition Root)
 # ビルド（ソリューションルートから）
 dotnet build
 
-# 実行
-dotnet run --project ./GameEngine
+# 実行（Exe は GameEngine.Console）
+dotnet run --project ./GameEngine.Console
 
 # テスト
 dotnet test

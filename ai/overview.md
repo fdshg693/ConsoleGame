@@ -1,22 +1,29 @@
 This is a C# console RPG engine on .NET 8.0. The runtime is a layered system that combines Factory, Strategy, and Manager patterns to drive turn-based combat, equipment, and YAML-configured enemies.
 
+## Solution Structure
+
+- `GameEngine`（Library, net8.0）: ゲームロジック・DTO・Manager・StateMachine・DI 登録（`AddGameEngine`）。Exe ではなくライブラリ出力で、コンソール/API 両ホストから `ProjectReference` 可能。
+- `GameEngine.Console`（Exe, net8.0）: コンソールホスト。合成起点 [./../GameEngine.Console/Program.cs](./../GameEngine.Console/Program.cs) と UI 固有実装（`ConsoleGameInput` 等は現状コア側に同居）。
+- `GameEngine.Tests`（Test, net8.0）: xUnit + Moq。TFM はエンジンと統一。
+
 ## Architecture & Data Flow
 
-- **Entry/Composition Root**: [./../GameEngine/Program.cs](./../GameEngine/Program.cs) は唯一の合成起点。`GameConfig` を一度だけ取得し、`Player` / `EventManager` / `IPlayerRepository` を生成して `GameSystem` にコンストラクタ注入する（`GameConfigLoader.Instance` への直アクセスは Program に限定）。
+- **Entry/Composition Root**: [./../GameEngine.Console/Program.cs](./../GameEngine.Console/Program.cs) は唯一の合成起点。`GameConfig` を一度だけ取得し、`IServiceCollection.AddGameEngine()`（[./../GameEngine/DependencyInjection/ServiceCollectionExtensions.cs](./../GameEngine/DependencyInjection/ServiceCollectionExtensions.cs)）でコア依存を登録、`IGameInput`/`IPlayer`/`IPlayerRepository` などホスト固有依存を追加登録して `GameSystem` を解決・実行する（`GameConfigLoader.Instance` への直アクセスは合成起点に限定）。
 - **Event routing**: [./../GameEngine/Systems/GameSystem.cs](./../GameEngine/Systems/GameSystem.cs) decides between shop vs battle (1/3 shop, 2/3 battle).
 - **Combat**: [./../GameEngine/Systems/BattleSystem/BattleManager.cs](./../GameEngine/Systems/BattleSystem/BattleManager.cs) coordinates turns; player strategy selection lives in [./../GameEngine/Systems/UserInteraction.cs](./../GameEngine/Systems/UserInteraction.cs).
 - **Composition**: `Player` owns `HealthManager`, `InventoryManager`, `ExperienceManager` (see [./../GameEngine/Models/Player.cs](./../GameEngine/Models/Player.cs) and [./../GameEngine/Manager](./../GameEngine/Manager)).
 
 ```
-Program(config) -> GameSystem(Player, Input, EventManager, IPlayerRepository?) -> [ShopSystem | BattleSystem] -> Player/Enemy -> Managers
+Program -> ServiceCollection.AddGameEngine()+host registrations -> ServiceProvider -> GameSystem(Player, Input, EventManager, IPlayerRepository?) -> [ShopSystem | BattleSystem] -> Player/Enemy -> Managers
 ```
 
 ## Core Patterns (project-specific)
 
 - **Strategy**: `IAttackStrategy` with `Default`/`Melee`/`Magic`. Strategy names are centralized in `AttackStrategyNames` ([./../GameEngine/Constants/AttackStrategyNames.cs](./../GameEngine/Constants/AttackStrategyNames.cs)). Mapping is in `AttackStrategy.GetAttackStrategy()` and `EnemyFactory.Create()` (keep names aligned with YAML).
-- **Factory**: `EnemyFactory` はインスタンスクラスで `IEnemyFactory` を実装し、合成起点で生成して Program → EventManager → BattleManager と注入する（静的な起動時ローダーではない）。コンストラクタで `EnemyConfig` + `Random` を受け取り、`AppContext.BaseDirectory` フォールバック付きのパスで自身の YAML specs を読み込む。`WeaponFactory` centralizes weapon creation.
+- **Factory**: `EnemyFactory` はインスタンスクラスで `IEnemyFactory` を実装し、`AddGameEngine` が Singleton 登録して EventManager → BattleManager へDI注入する（静的な起動時ローダーではない）。コンストラクタで `EnemyConfig` + `Random` を受け取り、`AppContext.BaseDirectory` フォールバック付きのパスで自身の YAML specs を読み込む。`WeaponFactory` centralizes weapon creation.
 - **Managers**: `HealthManager` uses `IEquipmentStatsProvider` from inventory to compute HP/AP/DP; `ExperienceManager` drives level growth. ドメインクラス（`Player`・各 Manager・`Enemy`）は設定を静的な `GameConstants` ラッパー経由ではなく `GameConfig`/サブ設定値のコンストラクタ注入で受け取る（`GameConstants` は固定の `AttackDamage` const のみを保持）。
-- **Repository**: `IPlayerRepository` abstracts persistence. `MongoPlayerRepository`（本番）と `InMemoryPlayerRepository`（テスト用）を切り替え可能。`GameSystem` にコンストラクタ注入される。
+- **Repository**: `IPlayerRepository` abstracts persistence. `MongoPlayerRepository`（本番）と `InMemoryPlayerRepository`（テスト用）を切り替え可能。`GameSystem` にコンストラクタ注入される（DI 未登録時は `IPlayerRepository?` の既定値 null = セーブ無効）。
+- **DI**: `AddGameEngine(IServiceCollection)` がコア依存（`GameConfig` Singleton / `IEnemyFactory` / `EventManager` / `GameSystem`）の登録を集約。`IGameInput`・`IPlayer`（実行時名）・`IPlayerRepository`（任意）は各ホストが登録する。`Microsoft.Extensions.DependencyInjection` 系を使用。
 
 ## Configuration & External Dependencies
 
@@ -27,7 +34,7 @@ Program(config) -> GameSystem(Player, Input, EventManager, IPlayerRepository?) -
 ## Developer Workflows
 
 - Build: `dotnet build`
-- Run: `dotnet run --project ./../GameEngine`
+- Run: `dotnet run --project ./../GameEngine.Console`
 - Tests: `dotnet test`
 - Save feature: run `docker-compose up -d` first (MongoDB + Mongo Express).
 

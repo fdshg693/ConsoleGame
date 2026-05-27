@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- アセンブリ名が "GameEngine.Console" でも、System.Console と曖昧にならないよう
+         ルート名前空間は CliRpgGame に固定する -->
+    <RootNamespace>CliRpgGame</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- コアエンジン。YAML 設定（CopyToOutputDirectory=Always）は本プロジェクトの出力にも伝播する -->
+    <ProjectReference Include="..\GameEngine\GameEngine.csproj" />
+  </ItemGroup>
+
+</Project>

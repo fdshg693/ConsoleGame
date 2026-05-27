@@ -4,7 +4,8 @@
 
 ## テスト環境
 
-- **.NET 9.0** / **xUnit 2.9.2** / **Moq 4.20.72**
+- **.NET 8.0**（エンジンと統一）/ **xUnit 2.9.2** / **Moq 4.20.72**
+- DI 合成テスト用に `Microsoft.Extensions.DependencyInjection 8.0.0` を参照
 - カバレッジ収集: coverlet.collector 6.0.2
 - `enemy-specs.yml` をビルド出力にコピーする設定あり（Factory テストで実ファイルを使用）
 
@@ -21,6 +22,13 @@ dotnet test --filter "FullyQualifiedName~GameEngine.Tests.Models"
 ```
 
 ## テスト構成
+
+### DependencyInjection/
+
+- **ServiceCollectionExtensionsTests.cs** -- `AddGameEngine` の DI 合成の回帰テスト（フェーズ0）
+  - `GameConfig` が Singleton 登録されること（同一インスタンス）
+  - `IEnemyFactory` が解決でき、敵キーが存在すること
+  - ホスト合成を再現（スタブ `IGameInput` + 固定名 `IPlayer`）し、リポジトリ有無の双方で `GameSystem` が解決できること（旧 `Program.cs` 手動合成の挙動維持を担保）
 
 ### Factory/
 

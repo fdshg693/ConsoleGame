@@ -1,10 +1,11 @@
-﻿using GameEngine.Configuration;
+using GameEngine.Configuration;
 using GameEngine.Constants;
-using GameEngine.Factory;
+using GameEngine.DependencyInjection;
 using GameEngine.Interfaces;
 using GameEngine.Manager;
 using GameEngine.Models;
 using GameEngine.Systems;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CliRpgGame
 {
@@ -17,8 +18,8 @@ namespace CliRpgGame
                 Console.WriteLine("=== CLI RPG Game ===");
                 Console.WriteLine("Loading game configuration...");
 
-                // 設定を一度だけ読み込み、以降は明示的に引き回す
-                // （静的シングルトンへの直アクセスはこの Composition Root に集約する）
+                // 設定を一度だけ読み込み、起動時バリデーションを通す。
+                // GameConfigLoader.Instance への直アクセスはこの合成起点に集約する。
                 var config = GameConfigLoader.Instance;
                 Console.WriteLine("Configuration loaded successfully!\n");
 
@@ -29,23 +30,36 @@ namespace CliRpgGame
                     ? "Hero"
                     : input.Trim();
 
-                // 依存の組み立て（Composition Root）
-                IPlayer player = CreatePlayer(playerName, config);
+                // 依存の組み立て（Composition Root）— DI コンテナへ移行
+                var services = new ServiceCollection();
 
-                // リポジトリの初期化（MongoDBが利用できない場合はnull）
+                // コア依存（設定・敵生成ファクトリ・進行制御）をまとめて登録
+                services.AddGameEngine();
+
+                // コンソール固有の入力実装
+                services.AddSingleton<IGameInput>(sp =>
+                {
+                    var c = sp.GetRequiredService<GameConfig>();
+                    return new ConsoleGameInput(c.Items.Potion.Price, c.Items.Potion.HealAmount);
+                });
+
+                // プレイヤー（名前は実行時入力。将来はセッション単位で生成する）
+                services.AddSingleton<IPlayer>(sp =>
+                    CreatePlayer(playerName, sp.GetRequiredService<GameConfig>()));
+
+                // セーブ用リポジトリ。MongoDB が利用できない場合は登録せず、
+                // GameSystem は IPlayerRepository? の既定値（null）でセーブ無効のまま続行する。
                 IPlayerRepository? playerRepository = CreatePlayerRepository(config);
+                if (playerRepository != null)
+                {
+                    services.AddSingleton<IPlayerRepository>(playerRepository);
+                }
 
-                var gameInput = new ConsoleGameInput(
-                    config.Items.Potion.Price,
-                    config.Items.Potion.HealAmount);
+                using var provider = services.BuildServiceProvider();
 
-                // 敵生成ファクトリ（設定を注入し、戦闘フローへ引き回す継ぎ目）
-                IEnemyFactory enemyFactory = new EnemyFactory(config.Enemy);
-
-                var eventManager = new EventManager(player, gameInput, config, enemyFactory);
-
-                // ゲームシステムの初期化と実行（IDisposable で GameMessageBus の購読を解除）
-                using var gameSystem = new GameSystem(player, gameInput, eventManager, playerRepository);
+                // GameSystem は IDisposable（GameMessageBus 購読解除）。
+                // provider 破棄時にも解除されるが、明示的な using でスコープ終了を分かりやすくする。
+                using var gameSystem = provider.GetRequiredService<GameSystem>();
                 gameSystem.RunGameLoop();
 
                 Console.WriteLine("\nThank you for playing! Press any key to exit.");

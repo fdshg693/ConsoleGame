@@ -6,8 +6,7 @@
 
 ```powershell
 docker-compose up -d
-cd GameEngine
-dotnet run
+dotnet run --project GameEngine.Console
 ```
 
 ## 特徴
@@ -60,16 +59,16 @@ docker-compose ps
 ### 3. ビルド・実行
 ```bash
 dotnet build
-dotnet run --project GameEngine
+dotnet run --project GameEngine.Console
 ```
 
 または、発行済みの実行ファイルを使用:
 ```bash
 # Windows
-./GameEngine/bin/Release/net8.0/GameEngine.exe
+./GameEngine.Console/bin/Release/net8.0/GameEngine.Console.exe
 
 # Linux
-./publish/linux-x64/GameEngine
+./publish/linux-x64/GameEngine.Console
 ```
 
 ## ゲームプレイ
@@ -105,34 +104,18 @@ dotnet run --project GameEngine
 ## プロジェクト構造
 
 ```
-GameEngine/
-├── Program.cs                 # メインエントリーポイント
-├── enemy-specs.yml           # 敵の設定ファイル
-├── Factory/                  # ファクトリーパターン実装
-│   ├── EnemyFactory.cs       # 敵生成ファクトリー
-│   └── WeaponFactory.cs      # 武器生成ファクトリー
-├── Interfaces/               # インターフェース定義
-│   ├── IAttackStrategy.cs    # 攻撃戦略インターフェース
-│   ├── ICharacter.cs         # キャラクター基底インターフェース
-│   ├── IEnemy.cs             # 敵インターフェース
-│   ├── IPlayer.cs            # プレイヤーインターフェース
-│   └── IWeapon.cs            # 武器インターフェース
-├── Manager/                  # 各種マネージャークラス
-│   ├── ExperienceManager.cs  # 経験値管理
-│   ├── HealthManager.cs      # HP/DP管理
-│   └── InventoryManager.cs   # インベントリ管理
-├── Models/                   # モデルクラス
-│   ├── AttackStrategy.cs     # 攻撃戦略実装
-│   ├── Enemy.cs              # 敵クラス
-│   ├── Player.cs             # プレイヤークラス
-│   └── Weapon.cs             # 武器クラス
-└── Systems/                  # ゲームシステム
-    ├── GameSystem.cs         # メインゲームシステム
-    ├── GameRecord.cs         # ゲーム記録
-    ├── RestSystem.cs         # 休息・回復システム
-    ├── ShopSystem.cs         # ショップシステム
-    ├── UserInteraction.cs    # ユーザー入力処理
-    └── BattleSystem/         # 戦闘システム
+GameEngine.sln
+├── GameEngine.Console/            # 実行ホスト（Exe）
+│   └── Program.cs                 # 合成起点（DI で GameSystem を組み立て起動）
+├── GameEngine.Tests/              # テスト（xUnit）
+└── GameEngine/                    # コアライブラリ（Library）
+    ├── DependencyInjection/       # AddGameEngine（DI 登録）
+    ├── enemy-specs.yml            # 敵の設定ファイル
+    ├── Factory/                   # ファクトリーパターン（EnemyFactory / WeaponFactory）
+    ├── Interfaces/                # インターフェース定義（ICharacter, IPlayer, IGameInput 等）
+    ├── Manager/                   # 各種マネージャー（Experience / Health / Inventory / Repository）
+    ├── Models/                    # モデル（Player, Enemy, Weapon, AttackStrategy）
+    └── Systems/                   # ゲームシステム（GameSystem, ShopSystem, BattleSystem, StateMachine）
 ```
 
 ## 設計パターン
